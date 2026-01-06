@@ -3,7 +3,7 @@
 @section('title', 'Mise en page Maintenance - Portail Intervention')
 
 @push('styles')
-<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.0/dist/quill.snow.css" rel="stylesheet">
 @endpush
 
 @section('content')
@@ -79,7 +79,7 @@
 </div>
 
 @push('scripts')
-<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.0/dist/quill.js"></script>
 <script>
     var quill = new Quill('#editor', {
         theme: 'snow',
@@ -99,11 +99,26 @@
     });
 
     @if($maintenance->layout_content)
-        quill.root.innerHTML = {!! json_encode($maintenance->layout_content) !!};
+        try {
+            const content = @json($maintenance->layout_content);
+            // Vérifier si c'est du JSON (Delta) ou du HTML
+            if (typeof content === 'string' && content.trim().startsWith('{')) {
+                const delta = JSON.parse(content);
+                quill.setContents(delta);
+            } else if (typeof content === 'object') {
+                quill.setContents(content);
+            } else {
+                // C'est du HTML, le charger tel quel
+                quill.root.innerHTML = content;
+            }
+        } catch (e) {
+            console.error('Erreur lors du chargement du contenu:', e);
+        }
     @endif
 
     document.getElementById('layoutForm').onsubmit = function() {
-        document.getElementById('layout_content').value = quill.root.innerHTML;
+        // Sauvegarder au format Delta JSON
+        document.getElementById('layout_content').value = JSON.stringify(quill.getContents());
     };
 </script>
 @endpush

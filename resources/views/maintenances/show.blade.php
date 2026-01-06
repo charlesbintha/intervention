@@ -234,24 +234,30 @@
                         try {
                             deltaContent = JSON.parse(deltaContent);
                         } catch (e) {
-                            viewer.innerHTML = '<div class="text-gray-700 whitespace-pre-wrap">' + deltaContent + '</div>';
+                            // Si ce n'est pas du JSON, c'est probablement du HTML
+                            viewer.innerHTML = deltaContent;
                             return;
                         }
                     }
 
-                    const tempQuill = new Quill(viewer, {
-                        theme: 'snow',
-                        readOnly: true,
-                        modules: {
-                            toolbar: false
+                    // Vérifier si c'est un objet Delta
+                    if (deltaContent && typeof deltaContent === 'object') {
+                        const tempQuill = new Quill(viewer, {
+                            theme: 'snow',
+                            readOnly: true,
+                            modules: {
+                                toolbar: false
+                            }
+                        });
+
+                        tempQuill.setContents(deltaContent);
+
+                        const toolbar = viewer.previousElementSibling;
+                        if (toolbar && toolbar.classList.contains('ql-toolbar')) {
+                            toolbar.style.display = 'none';
                         }
-                    });
-
-                    tempQuill.setContents(deltaContent);
-
-                    const toolbar = viewer.previousElementSibling;
-                    if (toolbar && toolbar.classList.contains('ql-toolbar')) {
-                        toolbar.style.display = 'none';
+                    } else {
+                        viewer.innerHTML = '<div class="text-gray-700 whitespace-pre-wrap">' + String(deltaContent) + '</div>';
                     }
                 } catch (error) {
                     console.error('Erreur lors du chargement du contenu Quill:', error);

@@ -21,7 +21,6 @@
         if (!viewer) return;
 
         try {
-            // Parse le contenu JSON
             let deltaContent = @json($content);
 
             // Si c'est une chaîne, essayer de la parser
@@ -29,28 +28,33 @@
                 try {
                     deltaContent = JSON.parse(deltaContent);
                 } catch (e) {
-                    // Si ce n'est pas du JSON, afficher comme texte brut
-                    viewer.innerHTML = '<div class="text-gray-700 whitespace-pre-wrap">' + deltaContent + '</div>';
+                    // Si ce n'est pas du JSON, c'est probablement du HTML
+                    viewer.innerHTML = deltaContent;
                     return;
                 }
             }
 
-            // Créer un éditeur Quill temporaire en lecture seule
-            const tempQuill = new Quill(viewer, {
-                theme: 'snow',
-                readOnly: true,
-                modules: {
-                    toolbar: false
+            // Vérifier si c'est un objet Delta avec une clé 'ops'
+            if (deltaContent && typeof deltaContent === 'object') {
+                // Créer un éditeur Quill temporaire en lecture seule
+                const tempQuill = new Quill(viewer, {
+                    theme: 'snow',
+                    readOnly: true,
+                    modules: {
+                        toolbar: false
+                    }
+                });
+
+                // Charger le contenu Delta
+                tempQuill.setContents(deltaContent);
+
+                // Masquer la barre d'outils (qui n'est pas utilisée)
+                const toolbar = viewer.previousElementSibling;
+                if (toolbar && toolbar.classList.contains('ql-toolbar')) {
+                    toolbar.style.display = 'none';
                 }
-            });
-
-            // Charger le contenu Delta
-            tempQuill.setContents(deltaContent);
-
-            // Masquer la barre d'outils (qui n'est pas utilisée)
-            const toolbar = viewer.previousElementSibling;
-            if (toolbar && toolbar.classList.contains('ql-toolbar')) {
-                toolbar.style.display = 'none';
+            } else {
+                viewer.innerHTML = '<div class="text-gray-700 whitespace-pre-wrap">' + String(deltaContent) + '</div>';
             }
         } catch (error) {
             console.error('Erreur lors du chargement du contenu Quill:', error);

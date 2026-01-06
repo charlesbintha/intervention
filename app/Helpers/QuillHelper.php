@@ -21,10 +21,16 @@ class QuillHelper
                 return '<p>'.htmlspecialchars($deltaJson).'</p>';
             }
 
+            // Vérifier si c'est un objet Delta avec une clé 'ops'
+            if (isset($delta['ops']) && is_array($delta['ops'])) {
+                $delta = $delta['ops'];
+            }
+
             $html = '';
             $currentLine = '';
             $inList = false;
             $listType = null;
+            $lineAttributes = [];
 
             foreach ($delta as $op) {
                 if (! isset($op['insert'])) {
@@ -33,6 +39,11 @@ class QuillHelper
 
                 $text = $op['insert'];
                 $attributes = $op['attributes'] ?? [];
+
+                // Capturer les attributs de ligne pour les appliquer plus tard
+                if (isset($attributes['header']) || isset($attributes['align']) || isset($attributes['indent'])) {
+                    $lineAttributes = $attributes;
+                }
 
                 // Appliquer les styles de texte
                 $styledText = self::applyTextStyles($text, $attributes);
@@ -66,9 +77,8 @@ class QuillHelper
                             if ($inList) {
                                 $html .= '<li>'.$part.'</li>';
                             } else {
-                                $alignment = $attributes['align'] ?? '';
-                                $alignClass = $alignment ? ' style="text-align: '.$alignment.';"' : '';
-                                $html .= '<p'.$alignClass.'>'.($part ?: '&nbsp;').'</p>';
+                                $html .= self::wrapInBlock($part, $lineAttributes);
+                                $lineAttributes = [];
                             }
                         } else {
                             $currentLine = $part;
@@ -85,7 +95,7 @@ class QuillHelper
 
             // Ajouter le contenu restant
             if ($currentLine) {
-                $html .= '<p>'.$currentLine.'</p>';
+                $html .= self::wrapInBlock($currentLine, $lineAttributes);
             }
 
             return $html ?: '<p>&nbsp;</p>';
@@ -95,11 +105,60 @@ class QuillHelper
     }
 
     /**
+     * Enveloppe le contenu dans un bloc HTML approprié
+     */
+    private static function wrapInBlock(string $content, array $attributes): string
+    {
+        if (empty($content)) {
+            $content = '&nbsp;';
+        }
+
+        $styles = [];
+        $tag = 'p';
+
+        // Gérer les en-têtes
+        if (isset($attributes['header'])) {
+            $level = (int) $attributes['header'];
+            $tag = 'h'.$level;
+        }
+
+        // Gérer l'alignement
+        if (isset($attributes['align'])) {
+            $styles[] = 'text-align: '.$attributes['align'];
+        }
+
+        // Gérer l'indentation
+        if (isset($attributes['indent'])) {
+            $indent = (int) $attributes['indent'];
+            $styles[] = 'margin-left: '.($indent * 30).'px';
+        }
+
+        $styleAttr = ! empty($styles) ? ' style="'.implode('; ', $styles).'"' : '';
+
+        return '<'.$tag.$styleAttr.'>'.$content.'</'.$tag.'>';
+    }
+
+    /**
      * Applique les styles de texte (gras, italique, etc.)
      */
     private static function applyTextStyles(string $text, array $attributes): string
     {
         $html = htmlspecialchars($text);
+        $styles = [];
+
+        // Gérer les couleurs
+        if (isset($attributes['color'])) {
+            $styles[] = 'color: '.$attributes['color'];
+        }
+
+        if (isset($attributes['background'])) {
+            $styles[] = 'background-color: '.$attributes['background'];
+        }
+
+        // Appliquer les styles si nécessaire
+        if (! empty($styles)) {
+            $html = '<span style="'.implode('; ', $styles).'">'.$html.'</span>';
+        }
 
         if (isset($attributes['bold']) && $attributes['bold']) {
             $html = '<strong>'.$html.'</strong>';

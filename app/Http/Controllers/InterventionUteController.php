@@ -176,8 +176,9 @@ class InterventionUteController extends Controller
         }
 
         $interventionUte->load('intervenants');
+        $employees = $this->employeeService->getEmployees();
 
-        return view('intervention_utes.edit', compact('interventionUte'));
+        return view('intervention_utes.edit', compact('interventionUte', 'employees'));
     }
 
     public function update(Request $request, InterventionUte $interventionUte)

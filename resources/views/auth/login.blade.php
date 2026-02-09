@@ -12,8 +12,8 @@
         }
     </style>
 </head>
-<body class="bg-gray-100">
-    <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+<body class="bg-gray-100 bg-cover bg-center bg-no-repeat bg-fixed" style="background-image: url('{{ asset('images/background.jpg') }}');">
+    <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-black/30">
         <div class="max-w-md w-full space-y-8">
             <!-- Logo et titre -->
             <div class="text-center">

@@ -101,16 +101,16 @@
                 <div class="text-gray-600">Surveys créés</div>
             </div>
             <div class="bg-white rounded-lg shadow p-6 text-center">
+                <div class="text-emerald-600 text-4xl font-bold mb-2">{{ $stats['project_trackings'] }}</div>
+                <div class="text-gray-600">Suivis de travaux</div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6 text-center">
                 <div class="text-gut-orange text-4xl font-bold mb-2">{{ $stats['maintenances'] }}</div>
                 <div class="text-gray-600">Maintenances réalisées</div>
             </div>
             <div class="bg-white rounded-lg shadow p-6 text-center">
                 <div class="text-gray-600 text-4xl font-bold mb-2">{{ $stats['interventions'] }}</div>
                 <div class="text-gray-600">Interventions</div>
-            </div>
-            <div class="bg-white rounded-lg shadow p-6 text-center">
-                <div class="text-emerald-600 text-4xl font-bold mb-2">{{ $stats['project_trackings'] }}</div>
-                <div class="text-gray-600">Suivis de travaux</div>
             </div>
         </div>
     @endif

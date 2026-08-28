@@ -62,8 +62,65 @@
         }
 
         .card-hover:hover {
-            transform: translateY(-5px);
             box-shadow: 0 15px 40px rgba(0, 153, 204, 0.2);
+        }
+
+        main input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]),
+        main select,
+        main textarea {
+            border-width: 1px;
+            border-style: solid;
+            border-color: #cbd5e1;
+            background-color: #ffffff;
+        }
+
+        main input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):focus,
+        main select:focus,
+        main textarea:focus {
+            border-color: #0ea5e9;
+            outline: 2px solid rgba(14, 165, 233, 0.18);
+            outline-offset: 1px;
+        }
+
+        main input[readonly],
+        main input:disabled,
+        main select:disabled,
+        main textarea:disabled {
+            background-color: #f3f4f6;
+            color: #4b5563;
+        }
+
+        .tracking-ui input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="file"]),
+        .tracking-ui select {
+            box-sizing: border-box;
+            min-height: 46px;
+            padding: 0.65rem 0.9rem;
+            border-radius: 0.5rem;
+            font-size: 0.95rem;
+            line-height: 1.25rem;
+        }
+
+        .tracking-ui textarea {
+            min-height: 96px;
+            padding: 0.75rem 0.9rem;
+            border-radius: 0.5rem;
+            font-size: 0.95rem;
+            line-height: 1.5rem;
+        }
+
+        .tracking-ui label {
+            color: #374151;
+            font-weight: 600;
+        }
+
+        .tracking-ui input::placeholder,
+        .tracking-ui textarea::placeholder {
+            color: #9ca3af;
+        }
+
+        .tracking-ui #project_search,
+        .tracking-ui #agent-search {
+            padding-left: 2.5rem;
         }
 
         /* Quill Editor Styles */
@@ -102,6 +159,9 @@
                     </a>
                     <a href="{{ route('intervention-utes.index') }}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition">
                         <i class="fas fa-wrench mr-2"></i>Interventions
+                    </a>
+                    <a href="{{ route('project-trackings.index') }}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition">
+                        <i class="fas fa-list-check mr-2"></i>Suivi travaux
                     </a>
 
                     @auth

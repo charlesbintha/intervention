@@ -46,6 +46,11 @@ class ProjectService
                             'nom_projet' => $nom,
                             'display' => $code.' - '.$nom,
                             'opportunity_id' => $project['sf_opportunity_id'] ?? '',
+                            'client_name' => $project['client_name']
+                                ?? $project['nom_client']
+                                ?? $project['account_name']
+                                ?? data_get($project, 'client.name')
+                                ?? '',
                         ];
 
                         // Log chaque projet avec son opportunity_id

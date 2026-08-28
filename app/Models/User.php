@@ -129,4 +129,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Survey::class);
     }
+
+    public function projectTrackings(): HasMany
+    {
+        return $this->hasMany(ProjectTracking::class);
+    }
 }

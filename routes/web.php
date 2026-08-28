@@ -5,8 +5,13 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InterventionUteController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProjectActionController;
+use App\Http\Controllers\ProjectActivityController;
+use App\Http\Controllers\ProjectBlockerController;
+use App\Http\Controllers\ProjectTrackingController;
 use App\Http\Controllers\SurveyController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\WorkLogController;
 use Illuminate\Support\Facades\Route;
 
 // Routes d'authentification (publiques)
@@ -77,6 +82,35 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/{interventionUte}/validate', [InterventionUteController::class, 'validate'])->name('validate');
         Route::post('/{interventionUte}/intervenants', [InterventionUteController::class, 'updateIntervenants'])->name('intervenants.update');
     });
+
+    Route::resource('project-trackings', ProjectTrackingController::class)
+        ->parameters(['project-trackings' => 'projectTracking']);
+    Route::post('project-trackings/{projectTracking}/approve-baseline', [ProjectTrackingController::class, 'approveBaseline'])
+        ->name('project-trackings.approve-baseline');
+    Route::post('project-trackings/{projectTracking}/activities', [ProjectActivityController::class, 'store'])
+        ->name('project-trackings.activities.store');
+    Route::get('project-activities/{activity}/edit', [ProjectActivityController::class, 'edit'])
+        ->name('project-activities.edit');
+    Route::put('project-activities/{activity}', [ProjectActivityController::class, 'update'])
+        ->name('project-activities.update');
+    Route::delete('project-activities/{activity}', [ProjectActivityController::class, 'destroy'])
+        ->name('project-activities.destroy');
+    Route::post('project-trackings/{projectTracking}/work-logs', [WorkLogController::class, 'store'])
+        ->name('project-trackings.work-logs.store');
+    Route::delete('project-trackings/{projectTracking}/work-logs/{workLog}', [WorkLogController::class, 'destroy'])
+        ->name('project-trackings.work-logs.destroy');
+    Route::post('project-trackings/{projectTracking}/blockers', [ProjectBlockerController::class, 'store'])
+        ->name('project-trackings.blockers.store');
+    Route::patch('project-blockers/{blocker}/status', [ProjectBlockerController::class, 'updateStatus'])
+        ->name('project-blockers.status');
+    Route::delete('project-blockers/{blocker}', [ProjectBlockerController::class, 'destroy'])
+        ->name('project-blockers.destroy');
+    Route::post('project-trackings/{projectTracking}/actions', [ProjectActionController::class, 'store'])
+        ->name('project-trackings.actions.store');
+    Route::patch('project-actions/{projectAction}/status', [ProjectActionController::class, 'updateStatus'])
+        ->name('project-actions.status');
+    Route::delete('project-actions/{projectAction}', [ProjectActionController::class, 'destroy'])
+        ->name('project-actions.destroy');
 
     // Route pour servir les fichiers attachés
     Route::get('/attachments/{path}', function ($path) {

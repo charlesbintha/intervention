@@ -22,7 +22,6 @@ class UpdateProjectTrackingRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'subsidiary' => ['required', 'in:GUT,CP,UTA,UA,UTE,UC'],
             'location' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'current_start_date' => ['nullable', 'date'],

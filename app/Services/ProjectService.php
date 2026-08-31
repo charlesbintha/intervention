@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class ProjectService
 {
@@ -17,9 +19,9 @@ class ProjectService
         $this->apiKey = config('services.projects.api_key');
     }
 
-    public function getProjects()
+    public function getProjects(): Collection
     {
-        return Cache::remember('projects_list', 3600, function () {
+        return Cache::remember('projects_list_v2', 3600, function () {
             try {
                 \Log::info('=== DEBUT RECUPERATION PROJETS ===');
                 \Log::info('API URL: '.$this->apiUrl);
@@ -51,6 +53,10 @@ class ProjectService
                                 ?? $project['account_name']
                                 ?? data_get($project, 'client.name')
                                 ?? '',
+                            'project_status' => $project['statut_initial'] ?? '',
+                            'executing_subsidiary_name' => $project['filiale_executant'] ?? '',
+                            'subsidiary' => $this->resolveSubsidiaryCode($project['filiale_executant'] ?? ''),
+                            'is_deleted' => ! empty($project['deleted_at']),
                         ];
 
                         // Log chaque projet avec son opportunity_id
@@ -86,10 +92,48 @@ class ProjectService
         });
     }
 
-    public function getProjectByCode($code)
+    public function getTrackableProjects(): Collection
+    {
+        $allowedStatuses = [
+            'en cours',
+            'en cours de traitement',
+            'planifie',
+            'planifier',
+            'pause',
+            'en pause',
+        ];
+
+        return $this->getProjects()
+            ->filter(function (array $project) use ($allowedStatuses): bool {
+                $status = Str::lower(Str::ascii(trim($project['project_status'])));
+
+                return ! $project['is_deleted'] && in_array($status, $allowedStatuses, true);
+            })
+            ->values();
+    }
+
+    public function getProjectByCode(string $code): ?array
     {
         $projects = $this->getProjects();
 
         return $projects->firstWhere('code_projet', $code);
+    }
+
+    public function getTrackableProjectByCode(string $code): ?array
+    {
+        return $this->getTrackableProjects()->firstWhere('code_projet', $code);
+    }
+
+    private function resolveSubsidiaryCode(string $executingSubsidiary): ?string
+    {
+        return match (Str::lower(Str::ascii(trim($executingSubsidiary)))) {
+            'gut', 'groupe univers telecom' => 'GUT',
+            'cp', 'cabinet pencco' => 'CP',
+            'uta', 'univers telecom afrique' => 'UTA',
+            'ua', 'univers academy' => 'UA',
+            'ute', 'univers technology & energy', 'univers technology & energies' => 'UTE',
+            'uc', 'univers capital' => 'UC',
+            default => null,
+        };
     }
 }

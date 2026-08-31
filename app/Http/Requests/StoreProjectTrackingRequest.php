@@ -29,9 +29,6 @@ class StoreProjectTrackingRequest extends FormRequest
                 'max:255',
                 Rule::unique('project_trackings')->where('user_id', $this->user()->id),
             ],
-            'external_project_name' => ['required', 'string', 'max:255'],
-            'external_opportunity_id' => ['nullable', 'string', 'max:255'],
-            'subsidiary' => ['required', 'in:GUT,CP,UTA,UA,UTE,UC'],
             'client_name' => ['nullable', 'string', 'max:255'],
             'location' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
@@ -45,8 +42,6 @@ class StoreProjectTrackingRequest extends FormRequest
         return [
             'external_project_code.required' => 'Veuillez sélectionner un projet.',
             'external_project_code.unique' => 'Vous avez déjà créé un suivi pour ce projet.',
-            'external_project_name.required' => 'Le nom du projet est obligatoire.',
-            'subsidiary.required' => 'Veuillez sélectionner une filiale.',
             'current_end_date.after_or_equal' => 'La date de fin doit être postérieure ou égale à la date de début.',
         ];
     }

@@ -12,6 +12,7 @@ use App\Services\SalesforceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class ProjectTrackingController extends Controller
@@ -40,14 +41,27 @@ class ProjectTrackingController extends Controller
 
     public function create(): View
     {
-        $projects = $this->projectService->getProjects();
+        $projects = $this->projectService->getTrackableProjects();
 
         return view('project_trackings.create', compact('projects'));
     }
 
     public function store(StoreProjectTrackingRequest $request): RedirectResponse
     {
-        $project = $this->projectService->getProjectByCode($request->string('external_project_code')->toString());
+        $project = $this->projectService->getTrackableProjectByCode($request->string('external_project_code')->toString());
+
+        if (! $project) {
+            throw ValidationException::withMessages([
+                'external_project_code' => 'Ce projet n’est plus disponible pour le suivi des travaux.',
+            ]);
+        }
+
+        if (! $project['subsidiary']) {
+            throw ValidationException::withMessages([
+                'external_project_code' => 'La filiale exécutante de ce projet n’est pas reconnue.',
+            ]);
+        }
+
         $clientName = $project['client_name'] ?? null;
 
         if (! $clientName && ! empty($project['opportunity_id'])) {
@@ -56,6 +70,10 @@ class ProjectTrackingController extends Controller
 
         $projectTracking = ProjectTracking::create([
             ...$request->validated(),
+            'external_project_code' => $project['code_projet'],
+            'external_project_name' => $project['nom_projet'],
+            'external_opportunity_id' => $project['opportunity_id'] ?: null,
+            'subsidiary' => $project['subsidiary'],
             'client_name' => $clientName ?: $request->string('client_name')->toString() ?: null,
             'user_id' => auth()->id(),
             'status' => 'draft',

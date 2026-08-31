@@ -9,7 +9,11 @@
     <form action="{{ route('project-trackings.update', $projectTracking) }}" method="POST" class="space-y-6 rounded-xl bg-white p-8 shadow-sm">
         @csrf @method('PUT')
         @if($errors->any())<div class="rounded-lg bg-red-50 p-4 text-red-700"><ul class="list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
-        <div><label class="block text-sm font-semibold">Filiale</label><select name="subsidiary" required class="mt-2 w-full rounded-lg border-gray-300">@foreach(['GUT','CP','UTA','UA','UTE','UC'] as $code)<option value="{{ $code }}" @selected(old('subsidiary', $projectTracking->subsidiary) === $code)>{{ $code }}</option>@endforeach</select></div>
+        <div>
+            <label for="subsidiary_display" class="block text-sm font-semibold">Filiale exécutante</label>
+            <input id="subsidiary_display" value="{{ $projectTracking->subsidiary }}" readonly class="mt-2 w-full cursor-not-allowed rounded-lg border border-gray-300 bg-gray-100 px-3 py-2.5 text-gray-700">
+            <p class="mt-1 text-xs text-gray-500">La filiale est définie par le projet d’origine.</p>
+        </div>
         <div class="grid gap-5 md:grid-cols-2">
             <div><label class="block text-sm font-semibold">Client du projet</label><input value="{{ $projectTracking->client_name ?: 'Non renseigné dans le projet' }}" readonly class="mt-2 w-full cursor-not-allowed rounded-lg border border-gray-300 bg-gray-100 px-3 py-2.5 text-gray-700"></div>
             <div><label class="block text-sm font-semibold">Localisation</label><input name="location" value="{{ old('location', $projectTracking->location) }}" class="mt-2 w-full rounded-lg border-gray-300"></div>

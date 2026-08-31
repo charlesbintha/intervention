@@ -5,17 +5,33 @@ use App\Models\ProjectActivity;
 use App\Models\ProjectBlocker;
 use App\Models\ProjectTracking;
 use App\Models\User;
+use App\Services\ProjectService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use Mockery\MockInterface;
 
 uses(RefreshDatabase::class);
 
-it('lets a user create a project tracking with a subsidiary', function () {
+it('creates a project tracking with the executing subsidiary from the project', function () {
     $user = User::factory()->create(['role' => 'user']);
+
+    $this->mock(ProjectService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('getTrackableProjectByCode')
+            ->once()
+            ->with('PRJ-001')
+            ->andReturn([
+                'code_projet' => 'PRJ-001',
+                'nom_projet' => 'Déploiement réseau',
+                'opportunity_id' => '',
+                'client_name' => 'Client Test',
+                'subsidiary' => 'UTE',
+            ]);
+    });
 
     $response = $this->actingAs($user)->post(route('project-trackings.store'), [
         'external_project_code' => 'PRJ-001',
-        'external_project_name' => 'Déploiement réseau',
-        'subsidiary' => 'UTE',
+        'subsidiary' => 'GUT',
         'client_name' => 'Client Test',
         'location' => 'Dakar',
         'current_start_date' => '2026-08-24',
@@ -27,6 +43,29 @@ it('lets a user create a project tracking with a subsidiary', function () {
     expect($tracking->user_id)->toBe($user->id)
         ->and($tracking->subsidiary)->toBe('UTE')
         ->and($tracking->status)->toBe('draft');
+});
+
+it('only exposes non-deleted projects with trackable statuses', function () {
+    Cache::forget('projects_list_v2');
+    config([
+        'services.projects.api_url' => 'https://projects.test/api/projects',
+        'services.projects.api_key' => 'test-key',
+    ]);
+
+    Http::fake([
+        'https://projects.test/*' => Http::response(['items' => [
+            ['code_projet' => 'PRJ-001', 'nom_projet' => 'Projet en cours', 'statut_initial' => 'En cours', 'filiale_executant' => 'Groupe Univers Télécom', 'deleted_at' => null],
+            ['code_projet' => 'PRJ-002', 'nom_projet' => 'Projet planifié', 'statut_initial' => 'Planifié', 'filiale_executant' => 'Cabinet Pencco', 'deleted_at' => null],
+            ['code_projet' => 'PRJ-003', 'nom_projet' => 'Projet en pause', 'statut_initial' => 'Pause', 'filiale_executant' => 'Univers Technology & Energies', 'deleted_at' => null],
+            ['code_projet' => 'PRJ-004', 'nom_projet' => 'Projet terminé', 'statut_initial' => 'Terminé', 'filiale_executant' => 'Groupe Univers Télécom', 'deleted_at' => null],
+            ['code_projet' => 'PRJ-005', 'nom_projet' => 'Projet supprimé', 'statut_initial' => 'En cours', 'filiale_executant' => 'Groupe Univers Télécom', 'deleted_at' => '2026-08-31 10:00:00'],
+        ]]),
+    ]);
+
+    $projects = app(ProjectService::class)->getTrackableProjects();
+
+    expect($projects->pluck('code_projet')->all())->toBe(['PRJ-001', 'PRJ-002', 'PRJ-003'])
+        ->and($projects->pluck('subsidiary')->all())->toBe(['GUT', 'CP', 'UTE']);
 });
 
 it('prevents a regular user from viewing another users tracking', function () {

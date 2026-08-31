@@ -7,7 +7,7 @@
     <div class="mb-8">
         <a href="{{ route('project-trackings.index') }}" class="text-sm font-semibold text-gut-blue">← Retour aux suivis</a>
         <h1 class="mt-3 text-3xl font-bold text-gray-900">Nouveau suivi de travaux</h1>
-        <p class="mt-1 text-gray-600">Sélectionnez le projet externe et sa filiale avant de construire le planning terrain.</p>
+        <p class="mt-1 text-gray-600">Sélectionnez un projet en cours, planifié ou en pause. Sa filiale exécutante sera renseignée automatiquement.</p>
     </div>
 
     @if($errors->any())
@@ -26,25 +26,19 @@
             <select id="project_selector" name="external_project_code" required class="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100">
                 <option value="">Sélectionner un projet</option>
                 @foreach($projects as $project)
-                    <option value="{{ $project['code_projet'] }}" data-name="{{ $project['nom_projet'] }}" data-opportunity="{{ $project['opportunity_id'] }}" data-client="{{ $project['client_name'] ?? '' }}" data-search-text="{{ strtolower($project['display']) }}" @selected(old('external_project_code') === $project['code_projet'])>
+                    <option value="{{ $project['code_projet'] }}" data-opportunity="{{ $project['opportunity_id'] }}" data-client="{{ $project['client_name'] ?? '' }}" data-subsidiary="{{ $project['subsidiary'] ? $project['subsidiary'].' — '.$project['executing_subsidiary_name'] : $project['executing_subsidiary_name'] }}" data-search-text="{{ strtolower($project['display']) }}" @selected(old('external_project_code') === $project['code_projet'])>
                         {{ $project['display'] }}
                     </option>
                 @endforeach
             </select>
             <p class="mt-2 text-xs text-gray-500"><span id="projects_count">{{ $projects->count() }}</span> projet(s) disponible(s)</p>
-            @if($projects->isEmpty())<p class="mt-2 text-sm text-amber-700">Aucun projet n’a pu être chargé depuis la plateforme externe.</p>@endif
-            <input type="hidden" id="external_project_name" name="external_project_name" value="{{ old('external_project_name') }}">
-            <input type="hidden" id="external_opportunity_id" name="external_opportunity_id" value="{{ old('external_opportunity_id') }}">
+            @if($projects->isEmpty())<p class="mt-2 text-sm text-amber-700">Aucun projet en cours, planifié ou en pause n’a pu être chargé depuis la plateforme externe.</p>@endif
         </div>
 
         <div>
-            <label class="block text-sm font-semibold text-gray-700">Filiale <span class="text-red-500">*</span></label>
-            <select name="subsidiary" required class="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100">
-                <option value="">Sélectionner une filiale</option>
-                @foreach(['GUT' => 'Groupe Univers Telecom', 'CP' => 'Cabinet Pencco', 'UTA' => 'Univers Telecom Afrique', 'UA' => 'Univers Academy', 'UTE' => 'Univers Technology & Energy', 'UC' => 'Univers Capital'] as $code => $name)
-                    <option value="{{ $code }}" @selected(old('subsidiary') === $code)>{{ $code }} — {{ $name }}</option>
-                @endforeach
-            </select>
+            <label for="subsidiary_display" class="block text-sm font-semibold text-gray-700">Filiale exécutante</label>
+            <input id="subsidiary_display" readonly placeholder="Sélectionnez d’abord un projet" class="mt-2 w-full cursor-not-allowed rounded-lg border border-gray-300 bg-gray-100 px-3 py-2.5 text-gray-700">
+            <p class="mt-1 text-xs text-gray-500">Cette information provient automatiquement du projet sélectionné.</p>
         </div>
 
         <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -67,6 +61,7 @@
 <script>
     const projectSearch = document.getElementById('project_search');
     const projectSelector = document.getElementById('project_selector');
+    const subsidiaryInput = document.getElementById('subsidiary_display');
     const clientInput = document.getElementById('client_name');
     const clientStatus = document.getElementById('client_status');
     const projectOptions = Array.from(projectSelector.options).slice(1);
@@ -86,11 +81,11 @@
 
     const syncProject = async () => {
         const option = projectSelector.options[projectSelector.selectedIndex];
-        document.getElementById('external_project_name').value = option?.dataset.name || '';
-        document.getElementById('external_opportunity_id').value = option?.dataset.opportunity || '';
-        projectSearch.value = option?.dataset.name ? option.textContent.trim() : projectSearch.value;
+        projectSearch.value = option?.value ? option.textContent.trim() : projectSearch.value;
+        subsidiaryInput.value = option?.dataset.subsidiary || '';
 
         if (!option?.value) {
+            subsidiaryInput.value = '';
             clientInput.value = '';
             clientStatus.textContent = 'Cette information est renseignée automatiquement.';
             return;
@@ -124,6 +119,6 @@
         }
     };
     projectSelector.addEventListener('change', syncProject);
-    if (projectSelector.value && !document.getElementById('external_project_name').value) syncProject();
+    if (projectSelector.value) syncProject();
 </script>
 @endpush

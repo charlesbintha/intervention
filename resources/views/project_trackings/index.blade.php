@@ -34,10 +34,7 @@
                     <div class="mb-2 flex justify-between text-sm"><span>Avancement réel</span><strong>{{ $tracking->actual_progress }} %</strong></div>
                     <div class="h-2 overflow-hidden rounded-full bg-gray-200"><div class="h-full bg-gut-blue" style="width: {{ $tracking->actual_progress }}%"></div></div>
                 </div>
-                <div class="mt-4 flex justify-between text-xs text-gray-500">
-                    <span>{{ $tracking->work_logs_count }} déclaration(s)</span>
-                    <span class="{{ $tracking->open_blockers_count > 0 ? 'font-semibold text-red-600' : '' }}">{{ $tracking->open_blockers_count }} blocage(s) ouvert(s)</span>
-                </div>
+                <div class="mt-4 text-xs text-gray-500">{{ $tracking->work_logs_count }} déclaration(s)</div>
             </a>
         @empty
             <div class="col-span-full rounded-xl border-2 border-dashed border-gray-300 bg-white p-12 text-center">

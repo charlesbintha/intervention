@@ -211,6 +211,23 @@ it('lets the project owner delete a blocker', function () {
     $this->assertModelMissing($blocker);
 });
 
+it('assigns an action to multiple responsible people', function () {
+    $user = User::factory()->create(['role' => 'user']);
+    $tracking = ProjectTracking::factory()->for($user)->create();
+
+    $this->actingAs($user)->post(route('project-trackings.actions.store', $tracking), [
+        'title' => 'Finaliser la recette technique',
+        'responsible_names' => ['Aminata Fall', 'Moussa Ndiaye'],
+        'due_date' => now()->addWeek()->toDateString(),
+        'priority' => 'high',
+    ])->assertSessionHas('success');
+
+    $action = $tracking->actions()->firstOrFail();
+
+    expect($action->responsible_names)->toBe(['Aminata Fall', 'Moussa Ndiaye'])
+        ->and($action->responsible_name)->toBe('Aminata Fall');
+});
+
 it('lets the project owner delete an action', function () {
     $user = User::factory()->create(['role' => 'user']);
     $tracking = ProjectTracking::factory()->for($user)->create();

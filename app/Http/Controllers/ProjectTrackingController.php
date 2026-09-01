@@ -27,7 +27,7 @@ class ProjectTrackingController extends Controller
     {
         $query = ProjectTracking::query()
             ->with('activities')
-            ->withCount(['activities', 'workLogs', 'blockers as open_blockers_count' => fn ($query) => $query->whereNotIn('status', ['resolved', 'closed'])])
+            ->withCount(['activities', 'workLogs'])
             ->latest();
 
         if (! auth()->user()->isAdmin()) {
@@ -91,7 +91,6 @@ class ProjectTrackingController extends Controller
             'user',
             'activities.workLogs',
             'workLogs' => fn ($query) => $query->with(['activity', 'user'])->latest('started_at'),
-            'blockers' => fn ($query) => $query->with('activity')->latest('opened_at'),
             'actions' => fn ($query) => $query->with('activity')->orderBy('due_date'),
             'revisions' => fn ($query) => $query->with(['activity', 'user'])->latest('version'),
         ]);

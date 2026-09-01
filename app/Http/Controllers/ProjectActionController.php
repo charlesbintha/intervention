@@ -17,8 +17,11 @@ class ProjectActionController extends Controller
             $projectTracking->activities()->findOrFail($request->integer('project_activity_id'));
         }
 
+        $validated = $request->validated();
+
         $projectTracking->actions()->create([
-            ...$request->validated(),
+            ...$validated,
+            'responsible_name' => $validated['responsible_names'][0],
             'user_id' => auth()->id(),
             'status' => 'open',
         ]);

@@ -18,11 +18,14 @@ class ProjectActionFactory extends Factory
      */
     public function definition(): array
     {
+        $responsibleName = fake()->name();
+
         return [
             'project_tracking_id' => ProjectTracking::factory(),
             'user_id' => User::factory(),
             'title' => fake()->sentence(3),
-            'responsible_name' => fake()->name(),
+            'responsible_name' => $responsibleName,
+            'responsible_names' => [$responsibleName],
             'due_date' => now()->addWeek()->toDateString(),
             'priority' => 'normal',
             'status' => 'open',

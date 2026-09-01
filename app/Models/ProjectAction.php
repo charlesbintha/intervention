@@ -18,6 +18,7 @@ class ProjectAction extends Model
         'title',
         'description',
         'responsible_name',
+        'responsible_names',
         'due_date',
         'priority',
         'status',
@@ -28,6 +29,7 @@ class ProjectAction extends Model
     protected function casts(): array
     {
         return [
+            'responsible_names' => 'array',
             'due_date' => 'date',
             'completed_at' => 'datetime',
         ];

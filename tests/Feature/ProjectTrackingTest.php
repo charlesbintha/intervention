@@ -68,12 +68,46 @@ it('only exposes non-deleted projects with trackable statuses', function () {
         ->and($projects->pluck('subsidiary')->all())->toBe(['GUT', 'CP', 'UTE']);
 });
 
-it('prevents a regular user from viewing another users tracking', function () {
+it('allows a regular user to view another users tracking', function () {
     $owner = User::factory()->create(['role' => 'user']);
     $other = User::factory()->create(['role' => 'user']);
     $tracking = ProjectTracking::factory()->for($owner)->create();
 
-    $this->actingAs($other)->get(route('project-trackings.show', $tracking))->assertForbidden();
+    $this->actingAs($other)->get(route('project-trackings.show', $tracking))->assertSuccessful();
+});
+
+it('lists every project tracking for a regular user', function () {
+    $user = User::factory()->create(['role' => 'user']);
+    $other = User::factory()->create(['role' => 'user']);
+    $ownTracking = ProjectTracking::factory()->for($user)->create();
+    $otherTracking = ProjectTracking::factory()->for($other)->create();
+
+    $this->actingAs($user)
+        ->get(route('project-trackings.index'))
+        ->assertSuccessful()
+        ->assertSee($ownTracking->external_project_name)
+        ->assertSee($otherTracking->external_project_name);
+});
+
+it('keeps another users tracking read only for a regular user', function () {
+    $owner = User::factory()->create(['role' => 'user']);
+    $other = User::factory()->create(['role' => 'user']);
+    $tracking = ProjectTracking::factory()->for($owner)->create();
+
+    $this->actingAs($other)
+        ->get(route('project-trackings.show', $tracking))
+        ->assertSuccessful()
+        ->assertDontSee('Modifier')
+        ->assertDontSee('Ajouter une activité au planning');
+
+    $this->actingAs($other)->get(route('project-trackings.edit', $tracking))->assertForbidden();
+
+    $this->actingAs($other)->post(route('project-trackings.actions.store', $tracking), [
+        'title' => 'Action interdite',
+        'responsible_names' => ['Agent Test'],
+        'due_date' => now()->addDay()->toDateString(),
+        'priority' => 'normal',
+    ])->assertForbidden();
 });
 
 it('allows an admin to view another users tracking', function () {

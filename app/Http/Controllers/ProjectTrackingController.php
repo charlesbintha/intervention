@@ -30,10 +30,6 @@ class ProjectTrackingController extends Controller
             ->withCount(['activities', 'workLogs'])
             ->latest();
 
-        if (! auth()->user()->isAdmin()) {
-            $query->where('user_id', auth()->id());
-        }
-
         $projectTrackings = $query->paginate(12);
 
         return view('project_trackings.index', compact('projectTrackings'));
@@ -95,7 +91,9 @@ class ProjectTrackingController extends Controller
             'revisions' => fn ($query) => $query->with(['activity', 'user'])->latest('version'),
         ]);
 
-        $employees = $this->employeeService->getEmployees();
+        $employees = Gate::allows('update', $projectTracking)
+            ? $this->employeeService->getEmployees()
+            : collect();
 
         return view('project_trackings.show', compact('projectTracking', 'employees'));
     }

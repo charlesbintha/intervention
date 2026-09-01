@@ -20,7 +20,7 @@ class ProjectTrackingPolicy
      */
     public function view(User $user, ProjectTracking $projectTracking): bool
     {
-        return $user->isAdmin() || $projectTracking->user_id === $user->id;
+        return true;
     }
 
     /**

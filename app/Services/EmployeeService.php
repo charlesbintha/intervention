@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -17,11 +18,11 @@ class EmployeeService
         $this->apiKey = config('services.employees.api_key');
     }
 
-    public function getEmployees()
+    public function getEmployees(): Collection
     {
         return Cache::remember('employees_list', 3600, function () {
             try {
-                $response = Http::withoutVerifying()->withHeaders([
+                $response = Http::withHeaders([
                     'X-API-Key' => $this->apiKey,
                 ])->get($this->apiUrl);
 
@@ -53,7 +54,7 @@ class EmployeeService
         });
     }
 
-    public function getEmployeeById($id)
+    public function getEmployeeById(int|string $id): ?array
     {
         $employees = $this->getEmployees();
 

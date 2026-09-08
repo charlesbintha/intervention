@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\LoginRequest;
 use App\Models\User;
+use App\Services\LoginRateLimiter;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -13,29 +16,39 @@ class AuthController extends Controller
     /**
      * Login user and create token
      */
-    public function login(Request $request)
+    public function login(LoginRequest $request, LoginRateLimiter $loginRateLimiter): JsonResponse
     {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
-        ]);
+        if ($loginRateLimiter->tooManyAttempts($request)) {
+            return response()->json([
+                'message' => 'Trop de tentatives de connexion.',
+                'retry_after' => $loginRateLimiter->availableIn($request),
+            ], 429);
+        }
 
-        $user = User::where('email', $request->email)->first();
+        $user = User::query()->where('email', $request->string('email')->toString())->first();
 
-        if (! $user || ! Hash::check($request->password, $user->password)) {
+        if (! $user || ! Hash::check($request->string('password')->toString(), $user->password)) {
+            $loginRateLimiter->hit($request);
+
             throw ValidationException::withMessages([
-                'email' => ['Les informations d\'identification sont incorrectes.'],
+                'email' => ['Les informations d’identification sont incorrectes.'],
             ]);
         }
 
         if (! $user->is_active) {
+            $loginRateLimiter->hit($request);
+
             return response()->json([
-                'message' => 'Votre compte a été désactivé. Veuillez contacter l\'administrateur.',
+                'message' => 'Votre compte a été désactivé. Veuillez contacter l’administrateur.',
             ], 403);
         }
 
-        // Create token
-        $token = $user->createToken('mobile-app')->plainTextToken;
+        $loginRateLimiter->clear($request);
+        $token = $user->createToken(
+            'mobile-app',
+            ['*'],
+            now()->addMinutes((int) config('sanctum.expiration')),
+        )->plainTextToken;
 
         return response()->json([
             'token' => $token,
@@ -52,7 +65,7 @@ class AuthController extends Controller
     /**
      * Logout user (revoke token)
      */
-    public function logout(Request $request)
+    public function logout(Request $request): JsonResponse
     {
         $request->user()->currentAccessToken()->delete();
 
@@ -64,7 +77,7 @@ class AuthController extends Controller
     /**
      * Get current user
      */
-    public function user(Request $request)
+    public function user(Request $request): JsonResponse
     {
         return response()->json($request->user());
     }

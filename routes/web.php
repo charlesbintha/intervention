@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Route;
 // Routes d'authentification (publiques)
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
 // Routes protégées par authentification et compte actif
 Route::middleware(['auth', 'active'])->group(function () {
@@ -29,16 +29,13 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     // Endpoint pour récupérer les détails d'une opportunité
     Route::get('/get-opportunity/{id}', function (App\Services\SalesforceService $salesforce, $id) {
-        \Log::info('Fetching opportunity', ['id' => $id]);
         $opportunity = $salesforce->getOpportunityById($id);
-        \Log::info('Opportunity result', ['opportunity' => $opportunity]);
         if ($opportunity) {
             return response()->json($opportunity);
         }
-        \Log::warning('Opportunity not found', ['id' => $id]);
 
         return response()->json(['error' => 'Opportunity not found'], 404);
-    })->name('get-opportunity');
+    })->where('id', '[A-Za-z0-9]{15}([A-Za-z0-9]{3})?')->name('get-opportunity');
 
     Route::prefix('surveys')->name('surveys.')->group(function () {
         Route::get('/', [SurveyController::class, 'index'])->name('index');
@@ -114,13 +111,21 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     // Route pour servir les fichiers attachés
     Route::get('/attachments/{path}', function ($path) {
-        $filePath = storage_path('app/public/attachments/'.$path);
+        $attachmentsDirectory = realpath(storage_path('app/public/attachments'));
+        $filePath = $attachmentsDirectory
+            ? realpath($attachmentsDirectory.DIRECTORY_SEPARATOR.$path)
+            : false;
 
-        if (! file_exists($filePath)) {
+        if (! $filePath
+            || ! str_starts_with($filePath, $attachmentsDirectory.DIRECTORY_SEPARATOR)
+            || ! is_file($filePath)) {
             abort(404);
         }
 
-        return response()->file($filePath);
+        return response()->file($filePath, [
+            'Content-Security-Policy' => "default-src 'none'; sandbox",
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     })->where('path', '.*')->name('attachments.show');
 
     // Routes d'administration (réservées aux admins)

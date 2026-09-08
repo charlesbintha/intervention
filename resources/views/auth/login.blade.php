@@ -4,13 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connexion - Portail Intervention</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        .gradient-gut {
-            background: linear-gradient(135deg, #0099CC 0%, #FF8C00 100%);
-        }
-    </style>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-cover bg-center bg-no-repeat bg-fixed" style="background-image: url('{{ asset('images/background.jpg') }}');">
     <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-black/40">
@@ -47,7 +41,7 @@
                 <div class="space-y-4">
                     <div>
                         <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
-                            <i class="fas fa-envelope mr-2 text-gray-500"></i>Email
+                            Email
                         </label>
                         <input id="email" name="email" type="email" required
                             value="{{ old('email') }}"
@@ -60,7 +54,7 @@
 
                     <div>
                         <label for="password" class="block text-sm font-medium text-gray-700 mb-1">
-                            <i class="fas fa-lock mr-2 text-gray-500"></i>Mot de passe
+                            Mot de passe
                         </label>
                         <input id="password" name="password" type="password" required
                             class="appearance-none rounded-lg relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -71,18 +65,9 @@
                     </div>
                 </div>
 
-                <div class="flex items-center">
-                    <input id="remember" name="remember" type="checkbox"
-                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                    <label for="remember" class="ml-2 block text-sm text-gray-700">
-                        Se souvenir de moi
-                    </label>
-                </div>
-
                 <div>
                     <button type="submit"
-                        class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white gradient-gut hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition">
-                        <i class="fas fa-sign-in-alt mr-2"></i>
+                        class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg bg-gut-blue text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition">
                         Se connecter
                     </button>
                 </div>

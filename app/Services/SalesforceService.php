@@ -2,16 +2,23 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use InvalidArgumentException;
+use RuntimeException;
 
 class SalesforceService
 {
-    protected $tokenUrl;
-    protected $clientId;
-    protected $clientSecret;
-    protected $apiBase;
-    protected $apiVersion;
+    protected string $tokenUrl;
+
+    protected string $clientId;
+
+    protected string $clientSecret;
+
+    protected string $apiBase;
+
+    protected string $apiVersion;
 
     public function __construct()
     {
@@ -22,36 +29,37 @@ class SalesforceService
         $this->apiVersion = config('services.salesforce.api_version');
     }
 
-    public function getAccessToken()
+    public function getAccessToken(): string
     {
-        return Cache::remember('salesforce_token', 3600, function () {
-            $response = Http::withoutVerifying()->asForm()->post($this->tokenUrl, [
+        return Cache::remember('salesforce_token', 3600, function (): string {
+            $response = Http::asForm()->post($this->tokenUrl, [
                 'grant_type' => 'client_credentials',
                 'client_id' => $this->clientId,
                 'client_secret' => $this->clientSecret,
             ]);
 
             if ($response->successful()) {
-                return $response->json()['access_token'];
+                return (string) $response->json('access_token');
             }
 
-            throw new \Exception('Failed to get Salesforce access token: ' . $response->body());
+            throw new RuntimeException('Impossible de récupérer le jeton Salesforce. Statut HTTP : '.$response->status());
         });
     }
 
-    public function getOpportunities()
+    public function getOpportunities(): Collection
     {
         try {
             $token = $this->getAccessToken();
 
-            $response = Http::withoutVerifying()->withToken($token)
+            $response = Http::withToken($token)
                 ->get("{$this->apiBase}/services/data/{$this->apiVersion}/query", [
-                    'q' => "SELECT Id, Name, Account.Name FROM Opportunity WHERE IsWon = true ORDER BY Name ASC"
+                    'q' => 'SELECT Id, Name, Account.Name FROM Opportunity WHERE IsWon = true ORDER BY Name ASC',
                 ]);
 
             if ($response->successful()) {
                 $data = $response->json();
-                return collect($data['records'] ?? [])->map(function ($record) {
+
+                return collect($data['records'] ?? [])->map(function (array $record): array {
                     return [
                         'id' => $record['Id'],
                         'name' => $record['Name'],
@@ -61,77 +69,63 @@ class SalesforceService
             }
 
             return collect([]);
-        } catch (\Exception $e) {
-            \Log::error('Salesforce API Error: ' . $e->getMessage());
+        } catch (\Throwable $exception) {
+            report($exception);
+
             return collect([]);
         }
     }
 
-    public function getOpportunityById($id)
+    public function getOpportunityById(string $id): ?array
     {
-        try {
-            \Log::info('=== DEBUT RECUPERATION OPPORTUNITY ===');
-            \Log::info('Opportunity ID: ' . $id);
+        if (! preg_match('/^[a-zA-Z0-9]{15}(?:[a-zA-Z0-9]{3})?$/', $id)) {
+            throw new InvalidArgumentException('Identifiant Salesforce invalide.');
+        }
 
+        try {
             $token = $this->getAccessToken();
-            \Log::info('Access token obtained');
 
             $query = "SELECT Id, Name, Account.Name FROM Opportunity WHERE Id = '{$id}'";
-            \Log::info('SOQL Query: ' . $query);
 
-            $response = Http::withoutVerifying()->withToken($token)
+            $response = Http::withToken($token)
                 ->get("{$this->apiBase}/services/data/{$this->apiVersion}/query", [
-                    'q' => $query
+                    'q' => $query,
                 ]);
-
-            \Log::info('Salesforce Response Status: ' . $response->status());
 
             if ($response->successful()) {
                 $data = $response->json();
-                \Log::info('Salesforce Response Data:', $data);
 
-                if (!empty($data['records'])) {
-                    $result = [
+                if (! empty($data['records'])) {
+                    return [
                         'id' => $data['records'][0]['Id'],
                         'name' => $data['records'][0]['Name'],
                         'account_name' => $data['records'][0]['Account']['Name'] ?? '',
                     ];
-                    \Log::info('Opportunity found:', $result);
-                    \Log::info('=== FIN RECUPERATION OPPORTUNITY (SUCCESS) ===');
-                    return $result;
-                } else {
-                    \Log::warning('No records found for opportunity ID: ' . $id);
                 }
-            } else {
-                \Log::error('Salesforce API returned non-successful status', [
-                    'status' => $response->status(),
-                    'body' => $response->body()
-                ]);
             }
 
-            \Log::info('=== FIN RECUPERATION OPPORTUNITY (NULL) ===');
             return null;
-        } catch (\Exception $e) {
-            \Log::error('Salesforce API Error: ' . $e->getMessage());
-            \Log::error('Stack trace: ' . $e->getTraceAsString());
-            \Log::info('=== FIN RECUPERATION OPPORTUNITY (ERROR) ===');
+        } catch (\Throwable $exception) {
+            report($exception);
+
             return null;
         }
     }
 
-    public function getAccounts()
+    public function getAccounts(): Collection
     {
         try {
             $token = $this->getAccessToken();
 
-            $response = Http::withoutVerifying()->withToken($token)
+            $response = Http::withToken($token)
                 ->get("{$this->apiBase}/services/data/{$this->apiVersion}/query", [
-                    'q' => "SELECT Id, Name FROM Account WHERE IsDeleted = false ORDER BY Name ASC"
+                    'q' => 'SELECT Id, Name FROM Account WHERE IsDeleted = false ORDER BY Name ASC',
                 ]);
 
             if ($response->successful()) {
                 $data = $response->json();
-                return collect($data['records'] ?? [])->map(function ($record) {
+
+                return collect($data['records'] ?? [])->map(function (array $record): array {
                     return [
                         'id' => $record['Id'],
                         'name' => $record['Name'],
@@ -140,8 +134,9 @@ class SalesforceService
             }
 
             return collect([]);
-        } catch (\Exception $e) {
-            \Log::error('Salesforce API Error: ' . $e->getMessage());
+        } catch (\Throwable $exception) {
+            report($exception);
+
             return collect([]);
         }
     }

@@ -26,6 +26,9 @@
                         {{ ['draft' => 'Brouillon', 'active' => 'Actif', 'suspended' => 'Suspendu', 'completed' => 'Terminé'][$tracking->status] }}
                     </span>
                 </div>
+                @if($tracking->overdue_activities_count > 0)
+                    <span class="mt-3 inline-flex items-center gap-1 rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700"><i class="fas fa-clock" aria-hidden="true"></i>{{ $tracking->overdue_activities_count }} activité(s) en retard</span>
+                @endif
                 <div class="mt-4 flex items-center justify-between text-sm text-gray-600">
                     <span>{{ $tracking->subsidiary }}</span>
                     <span>{{ $tracking->activities_count }} activité(s)</span>

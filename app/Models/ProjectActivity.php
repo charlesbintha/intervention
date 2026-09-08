@@ -22,6 +22,7 @@ class ProjectActivity extends Model
         'name',
         'description',
         'assigned_agents',
+        'assigned_agent_emails',
         'external_stakeholders',
         'baseline_start_date',
         'baseline_end_date',
@@ -34,17 +35,23 @@ class ProjectActivity extends Model
         'deliverable',
         'priority',
         'sort_order',
+        'ms_planner_task_id',
+        'planner_sync_status',
+        'planner_sync_error',
+        'planner_synced_at',
     ];
 
     protected $appends = [
         'progress_percentage',
         'planned_progress_percentage',
+        'is_overdue',
     ];
 
     protected function casts(): array
     {
         return [
             'assigned_agents' => 'array',
+            'assigned_agent_emails' => 'array',
             'external_stakeholders' => 'array',
             'baseline_start_date' => 'date',
             'baseline_end_date' => 'date',
@@ -52,6 +59,7 @@ class ProjectActivity extends Model
             'current_end_date' => 'date',
             'planned_quantity' => 'decimal:2',
             'completed_quantity' => 'decimal:2',
+            'planner_synced_at' => 'datetime',
         ];
     }
 
@@ -102,5 +110,10 @@ class ProjectActivity extends Model
         $elapsed = $start->diffInDays($today);
 
         return round(min(100, ($elapsed / $duration) * 100), 1);
+    }
+
+    public function getIsOverdueAttribute(): bool
+    {
+        return $this->status !== 'completed' && $this->current_end_date->isBefore(Carbon::today());
     }
 }

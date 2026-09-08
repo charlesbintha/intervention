@@ -5,6 +5,8 @@ use App\Models\ProjectActivity;
 use App\Models\ProjectBlocker;
 use App\Models\ProjectTracking;
 use App\Models\User;
+use App\Services\EmployeeService;
+use App\Services\MicrosoftGraphService;
 use App\Services\ProjectService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -26,27 +28,53 @@ it('creates a project tracking with the executing subsidiary from the project', 
                 'opportunity_id' => '',
                 'client_name' => 'Client Test',
                 'subsidiary' => 'UTE',
+                'location' => 'Dakar',
+                'description' => 'Déployer le réseau du client.',
+                'start_date' => '2026-08-24',
+                'end_date' => '2026-09-30',
+                'ms_group_id' => 'group-id',
+                'ms_plan_id' => 'plan-id',
+                'ms_bucket_id' => 'bucket-id',
             ]);
     });
 
     $response = $this->actingAs($user)->post(route('project-trackings.store'), [
         'external_project_code' => 'PRJ-001',
-        'subsidiary' => 'GUT',
-        'client_name' => 'Client Test',
-        'location' => 'Dakar',
-        'current_start_date' => '2026-08-24',
-        'current_end_date' => '2026-09-30',
     ]);
 
     $tracking = ProjectTracking::firstOrFail();
     $response->assertRedirect(route('project-trackings.show', $tracking));
     expect($tracking->user_id)->toBe($user->id)
         ->and($tracking->subsidiary)->toBe('UTE')
+        ->and($tracking->location)->toBe('Dakar')
+        ->and($tracking->description)->toBe('Déployer le réseau du client.')
+        ->and($tracking->current_start_date->toDateString())->toBe('2026-08-24')
+        ->and($tracking->current_end_date->toDateString())->toBe('2026-09-30')
+        ->and($tracking->ms_group_id)->toBe('group-id')
+        ->and($tracking->ms_plan_id)->toBe('plan-id')
+        ->and($tracking->ms_bucket_id)->toBe('bucket-id')
         ->and($tracking->status)->toBe('draft');
 });
 
+it('only asks for the project when creating a tracking', function () {
+    $user = User::factory()->create(['role' => 'user']);
+
+    $this->mock(ProjectService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('getTrackableProjects')->once()->andReturn(collect());
+    });
+
+    $this->actingAs($user)
+        ->get(route('project-trackings.create'))
+        ->assertSuccessful()
+        ->assertSee('name="external_project_code"', false)
+        ->assertDontSee('name="location"', false)
+        ->assertDontSee('name="current_start_date"', false)
+        ->assertDontSee('name="current_end_date"', false)
+        ->assertDontSee('name="description"', false);
+});
+
 it('only exposes non-deleted projects with trackable statuses', function () {
-    Cache::forget('projects_list_v2');
+    Cache::forget('projects_list_v3');
     config([
         'services.projects.api_url' => 'https://projects.test/api/projects',
         'services.projects.api_key' => 'test-key',
@@ -178,10 +206,17 @@ it('automatically orders activities and stores selected people', function () {
     $tracking = ProjectTracking::factory()->for($user)->create();
     ProjectActivity::factory()->for($tracking)->create(['sort_order' => 3]);
 
+    $this->mock(EmployeeService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('getEmployees')->once()->andReturn(collect([
+            ['prenom_nom' => 'Aminata Fall', 'email' => 'aminata@example.com'],
+            ['prenom_nom' => 'Moussa Ndiaye', 'email' => 'moussa@example.com'],
+        ]));
+    });
+
     $this->actingAs($user)->post(route('project-trackings.activities.store', $tracking), [
         'lot_name' => 'Réseau',
         'name' => 'Installation des équipements',
-        'assigned_agents' => ['Aminata Fall', 'Moussa Ndiaye'],
+        'assigned_agent_emails' => ['aminata@example.com', 'moussa@example.com'],
         'external_stakeholders' => [[
             'last_name' => 'Diop',
             'first_name' => 'Fatou',
@@ -198,7 +233,61 @@ it('automatically orders activities and stores selected people', function () {
     expect($activity->sort_order)->toBe(4)
         ->and($activity->unit)->toBe('pourcentage')
         ->and($activity->assigned_agents)->toBe(['Aminata Fall', 'Moussa Ndiaye'])
+        ->and($activity->assigned_agent_emails)->toBe(['aminata@example.com', 'moussa@example.com'])
         ->and($activity->external_stakeholders[0]['email'])->toBeNull();
+});
+
+it('adds missing assignees to the project group and creates the planner task', function () {
+    Cache::flush();
+    config([
+        'services.microsoft_graph.tenant_id' => 'tenant-id',
+        'services.microsoft_graph.client_id' => 'client-id',
+        'services.microsoft_graph.client_secret' => 'client-secret',
+        'services.microsoft_graph.scope' => 'https://graph.microsoft.com/.default',
+    ]);
+
+    Http::fake([
+        'https://login.microsoftonline.com/*' => Http::response(['access_token' => 'token']),
+        'https://graph.microsoft.com/v1.0/groups/group-id/members/microsoft.graph.user*' => Http::response(['value' => [[
+            'id' => 'existing-user-id',
+            'displayName' => 'Aminata Fall',
+            'mail' => 'aminata@example.com',
+        ]]]),
+        'https://graph.microsoft.com/v1.0/users/aminata%40example.com*' => Http::response([
+            'id' => 'existing-user-id',
+            'displayName' => 'Aminata Fall',
+            'mail' => 'aminata@example.com',
+        ]),
+        'https://graph.microsoft.com/v1.0/users/moussa%40example.com*' => Http::response([
+            'id' => 'new-user-id',
+            'displayName' => 'Moussa Ndiaye',
+            'mail' => 'moussa@example.com',
+        ]),
+        'https://graph.microsoft.com/v1.0/groups/group-id/members/$ref' => Http::response(null, 204),
+        'https://graph.microsoft.com/v1.0/planner/tasks' => Http::response(['id' => 'planner-task-id'], 201),
+    ]);
+
+    $tracking = ProjectTracking::factory()->create([
+        'ms_group_id' => 'group-id',
+        'ms_plan_id' => 'plan-id',
+        'ms_bucket_id' => 'bucket-id',
+    ]);
+    $activity = ProjectActivity::factory()->for($tracking)->create([
+        'name' => 'Installer les équipements',
+        'assigned_agent_emails' => ['aminata@example.com', 'moussa@example.com'],
+        'current_start_date' => '2026-09-08',
+        'current_end_date' => '2026-09-10',
+    ]);
+
+    $taskId = app(MicrosoftGraphService::class)->syncActivity($activity);
+
+    expect($taskId)->toBe('planner-task-id');
+    Http::assertSent(fn ($request): bool => $request->url() === 'https://graph.microsoft.com/v1.0/groups/group-id/members/$ref'
+        && $request['@odata.id'] === 'https://graph.microsoft.com/v1.0/directoryObjects/new-user-id');
+    Http::assertSent(fn ($request): bool => $request->url() === 'https://graph.microsoft.com/v1.0/planner/tasks'
+        && $request['planId'] === 'plan-id'
+        && $request['bucketId'] === 'bucket-id'
+        && array_keys($request['assignments']) === ['existing-user-id', 'new-user-id']);
 });
 
 it('rejects work quantities above the planned quantity', function () {

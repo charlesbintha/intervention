@@ -21,7 +21,7 @@ class ProjectService
 
     public function getProjects(): Collection
     {
-        return Cache::remember('projects_list_v2', 3600, function () {
+        return Cache::remember('projects_list_v3', 3600, function () {
             try {
                 \Log::info('=== DEBUT RECUPERATION PROJETS ===');
                 \Log::info('API URL: '.$this->apiUrl);
@@ -44,6 +44,7 @@ class ProjectService
                         $nom = $project['nom_projet'] ?? '';
 
                         $mapped = [
+                            'id' => $project['id'] ?? null,
                             'code_projet' => $code,
                             'nom_projet' => $nom,
                             'display' => $code.' - '.$nom,
@@ -53,6 +54,19 @@ class ProjectService
                                 ?? $project['account_name']
                                 ?? data_get($project, 'client.name')
                                 ?? '',
+                            'location' => $project['location']
+                                ?? $project['lieu']
+                                ?? $project['site']
+                                ?? null,
+                            'description' => $project['objectif_projet']
+                                ?? $project['contexte']
+                                ?? $project['synthese']
+                                ?? null,
+                            'start_date' => $project['date_demarrage'] ?? null,
+                            'end_date' => $project['date_fin'] ?? null,
+                            'ms_group_id' => $project['ms_group_id'] ?? null,
+                            'ms_plan_id' => $project['ms_plan_id'] ?? null,
+                            'ms_bucket_id' => $project['ms_bucket_id'] ?? null,
                             'project_status' => $project['statut_initial'] ?? '',
                             'executing_subsidiary_name' => $project['filiale_executant'] ?? '',
                             'subsidiary' => $this->resolveSubsidiaryCode($project['filiale_executant'] ?? ''),

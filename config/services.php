@@ -53,4 +53,12 @@ return [
         'api_key' => env('EMPLOYEES_API_KEY'),
     ],
 
+    'microsoft_graph' => [
+        'tenant_id' => env('MS_GRAPH_TENANT_ID'),
+        'client_id' => env('MS_GRAPH_CLIENT_ID'),
+        'client_secret' => env('MS_GRAPH_CLIENT_SECRET'),
+        'scope' => env('MS_GRAPH_SCOPE', 'https://graph.microsoft.com/.default'),
+        'auto_sync' => env('MS_GRAPH_AUTO_SYNC', true),
+    ],
+
 ];

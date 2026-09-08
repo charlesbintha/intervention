@@ -4,19 +4,25 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreProjectActivityRequest;
 use App\Http\Requests\UpdateProjectActivityRequest;
+use App\Jobs\SyncProjectActivityToPlanner;
 use App\Models\PlanRevision;
 use App\Models\ProjectActivity;
 use App\Models\ProjectTracking;
 use App\Services\EmployeeService;
+use App\Services\MicrosoftGraphService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class ProjectActivityController extends Controller
 {
-    public function __construct(private readonly EmployeeService $employeeService) {}
+    public function __construct(
+        private readonly EmployeeService $employeeService,
+        private readonly MicrosoftGraphService $microsoftGraphService,
+    ) {}
 
     public function store(StoreProjectActivityRequest $request, ProjectTracking $projectTracking): RedirectResponse
     {
@@ -31,15 +37,17 @@ class ProjectActivityController extends Controller
 
         $this->syncCurrentSchedule($projectTracking);
 
-        return back()->with('success', 'L’activité a été ajoutée au planning.');
+        $this->dispatchPlannerSync($activity);
+
+        return back()->with('success', 'L’activité a été ajoutée. Sa synchronisation avec Planner est en cours.');
     }
 
     public function edit(ProjectActivity $activity): View
     {
         Gate::authorize('update', $activity->projectTracking);
-        $employees = $this->employeeService->getEmployees();
+        $assigneeChoices = $this->assigneeChoices($activity->projectTracking);
 
-        return view('project_trackings.activities.edit', compact('activity', 'employees'));
+        return view('project_trackings.activities.edit', compact('activity', 'assigneeChoices'));
     }
 
     public function update(UpdateProjectActivityRequest $request, ProjectActivity $activity): RedirectResponse
@@ -58,6 +66,8 @@ class ProjectActivityController extends Controller
         }
 
         $this->syncCurrentSchedule($activity->projectTracking);
+
+        $this->dispatchPlannerSync($activity);
 
         return redirect()->route('project-trackings.show', $activity->projectTracking)
             ->with('success', 'L’activité et le planning courant ont été mis à jour.');
@@ -82,11 +92,20 @@ class ProjectActivityController extends Controller
 
     private function prepareData(array $data): array
     {
-        $agents = collect($data['assigned_agents'] ?? [])
-            ->map(fn (string $agent): string => trim($agent))
+        $emails = collect($data['assigned_agent_emails'] ?? [])
+            ->map(fn (string $email): string => mb_strtolower(trim($email)))
             ->filter()
             ->unique()
             ->values()
+            ->all();
+
+        $choices = $this->assigneeChoices($this->resolveTracking());
+        $agents = collect($emails)
+            ->map(function (string $email) use ($choices): string {
+                $choice = $choices->firstWhere('email', $email);
+
+                return (string) ($choice['name'] ?? $email);
+            })
             ->all();
 
         $externalStakeholders = collect($data['external_stakeholders'] ?? [])
@@ -100,8 +119,9 @@ class ProjectActivityController extends Controller
             ->all();
 
         return [
-            ...Arr::except($data, ['assigned_agents', 'external_stakeholders', 'change_reason']),
+            ...Arr::except($data, ['assigned_agent_emails', 'external_stakeholders', 'change_reason']),
             'assigned_agents' => $agents,
+            'assigned_agent_emails' => $emails,
             'external_stakeholders' => $externalStakeholders,
             'unit' => 'pourcentage',
         ];
@@ -122,7 +142,7 @@ class ProjectActivityController extends Controller
 
     private function revisionFields(): array
     {
-        return ['lot_name', 'phase_name', 'name', 'current_start_date', 'current_end_date', 'planned_quantity', 'status', 'assigned_agents', 'external_stakeholders'];
+        return ['lot_name', 'phase_name', 'name', 'current_start_date', 'current_end_date', 'planned_quantity', 'status', 'assigned_agents', 'assigned_agent_emails', 'external_stakeholders'];
     }
 
     private function syncCurrentSchedule(ProjectTracking $tracking): void
@@ -131,5 +151,50 @@ class ProjectActivityController extends Controller
             'current_start_date' => $tracking->activities()->min('current_start_date'),
             'current_end_date' => $tracking->activities()->max('current_end_date'),
         ]);
+    }
+
+    /** @return Collection<int, array{id: ?string, name: string, email: string, is_project_member: bool}> */
+    private function assigneeChoices(ProjectTracking $tracking): Collection
+    {
+        $projectMembers = rescue(
+            fn () => $this->microsoftGraphService->getGroupMembers($tracking->ms_group_id),
+            collect(),
+        )
+            ->map(fn (array $member): array => [...$member, 'is_project_member' => true]);
+        $employees = $this->employeeService->getEmployees()
+            ->filter(fn (array $employee): bool => filled($employee['email']))
+            ->map(fn (array $employee): array => [
+                'id' => null,
+                'name' => $employee['prenom_nom'],
+                'email' => mb_strtolower($employee['email']),
+                'is_project_member' => false,
+            ]);
+
+        return $projectMembers->merge($employees)->unique('email')->sortByDesc('is_project_member')->values();
+    }
+
+    private function resolveTracking(): ProjectTracking
+    {
+        $tracking = request()->route('projectTracking') ?? request()->route('activity')?->projectTracking;
+
+        abort_unless($tracking instanceof ProjectTracking, 404);
+
+        return $tracking;
+    }
+
+    private function dispatchPlannerSync(ProjectActivity $activity): void
+    {
+        $canSynchronize = config('services.microsoft_graph.auto_sync')
+            && filled($activity->projectTracking->ms_group_id)
+            && filled($activity->projectTracking->ms_plan_id);
+
+        $activity->update([
+            'planner_sync_status' => $canSynchronize ? 'pending' : 'not_configured',
+            'planner_sync_error' => null,
+        ]);
+
+        if ($canSynchronize) {
+            SyncProjectActivityToPlanner::dispatch($activity->id)->afterCommit();
+        }
     }
 }

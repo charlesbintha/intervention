@@ -1,6 +1,10 @@
 @php
-    $selectedAgents = array_values(old('assigned_agents', isset($activity) ? ($activity->assigned_agents ?? []) : []));
-    $agentChoices = collect($employees)->pluck('prenom_nom')->filter()->merge($selectedAgents)->unique()->sort()->values();
+    $selectedAgentEmails = array_values(old('assigned_agent_emails', isset($activity) ? ($activity->assigned_agent_emails ?? []) : []));
+    if (empty($selectedAgentEmails) && isset($activity) && !empty($activity->assigned_agents)) {
+        $selectedAgentEmails = collect($assigneeChoices)->whereIn('name', $activity->assigned_agents)->pluck('email')->all();
+    }
+    $projectAssignees = collect($assigneeChoices)->where('is_project_member', true);
+    $otherAssignees = collect($assigneeChoices)->where('is_project_member', false);
     $externalStakeholders = array_values(old('external_stakeholders', isset($activity) ? ($activity->external_stakeholders ?? []) : []));
 @endphp
 
@@ -12,21 +16,27 @@
 
     <div class="md:col-span-2 rounded-xl border border-gray-200 bg-gray-50 p-4">
         <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <div><h3 class="text-sm font-bold text-gray-800">Agents GUT affectés</h3><p class="text-xs text-gray-500">Recherchez puis cochez plusieurs agents.</p></div>
-            <span id="selected-agents-count" class="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-700">{{ count($selectedAgents) }} sélectionné(s)</span>
+            <div><h3 class="text-sm font-bold text-gray-800">Personnes assignées à l’activité</h3><p class="text-xs text-gray-500">Les membres du projet sont proposés en premier. Un autre collaborateur sera automatiquement ajouté au groupe Microsoft 365.</p></div>
+            <span id="selected-agents-count" class="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-700">{{ count($selectedAgentEmails) }} sélectionné(s)</span>
         </div>
         <div class="relative mt-3">
             <i class="fas fa-search pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true"></i>
-            <input type="search" id="agent-search" placeholder="Rechercher un agent GUT..." autocomplete="off" class="w-full rounded-lg border-gray-300 pl-10">
+            <input type="search" id="agent-search" placeholder="Rechercher par nom ou adresse email..." autocomplete="off" class="w-full rounded-lg border-gray-300 pl-10">
         </div>
         <div id="agent-options" class="mt-3 max-h-56 space-y-1 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2">
-            @foreach($agentChoices as $agentName)
-                <label class="agent-option flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-sky-50" data-search="{{ mb_strtolower($agentName) }}">
-                    <input type="checkbox" name="assigned_agents[]" value="{{ $agentName }}" @checked(in_array($agentName, $selectedAgents, true)) class="h-4 w-4 rounded border-gray-300 accent-sky-600 focus:ring-gut-blue">
-                    <span class="text-sm text-gray-700">{{ $agentName }}</span>
-                </label>
+            @foreach([['label' => 'Membres actuels du projet', 'items' => $projectAssignees], ['label' => 'Autres collaborateurs', 'items' => $otherAssignees]] as $group)
+                @if($group['items']->isNotEmpty())
+                    <p class="agent-group-label px-3 pb-1 pt-2 text-xs font-bold uppercase tracking-wide text-gray-500">{{ $group['label'] }}</p>
+                    @foreach($group['items'] as $assignee)
+                        <label class="agent-option flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-sky-50" data-search="{{ mb_strtolower($assignee['name'].' '.$assignee['email']) }}">
+                            <input type="checkbox" name="assigned_agent_emails[]" value="{{ $assignee['email'] }}" @checked(in_array($assignee['email'], $selectedAgentEmails, true)) class="h-4 w-4 rounded border-gray-300 accent-sky-600 focus:ring-gut-blue">
+                            <span class="min-w-0 flex-1"><span class="block text-sm font-medium text-gray-700">{{ $assignee['name'] }}</span><span class="block truncate text-xs text-gray-500">{{ $assignee['email'] }}</span></span>
+                            @if($assignee['is_project_member'])<span class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700">Dans le projet</span>@endif
+                        </label>
+                    @endforeach
+                @endif
             @endforeach
-            <p id="no-agent-result" class="{{ $agentChoices->isNotEmpty() ? 'hidden' : '' }} px-3 py-4 text-center text-sm text-gray-500">Aucun agent ne correspond à cette recherche.</p>
+            <p id="no-agent-result" class="{{ collect($assigneeChoices)->isNotEmpty() ? 'hidden' : '' }} px-3 py-4 text-center text-sm text-gray-500">Aucun collaborateur avec une adresse Microsoft n’est disponible.</p>
         </div>
     </div>
 
@@ -71,7 +81,7 @@
         const selectedAgentsCount = document.getElementById('selected-agents-count');
 
         function updateSelectedAgentsCount() {
-            const selectedCount = document.querySelectorAll('input[name="assigned_agents[]"]:checked').length;
+            const selectedCount = document.querySelectorAll('input[name="assigned_agent_emails[]"]:checked').length;
             if (selectedAgentsCount) selectedAgentsCount.textContent = `${selectedCount} sélectionné(s)`;
         }
 

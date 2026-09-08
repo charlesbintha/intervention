@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateProjectTrackingRequest;
 use App\Models\PlanRevision;
 use App\Models\ProjectTracking;
 use App\Services\EmployeeService;
+use App\Services\MicrosoftGraphService;
 use App\Services\ProjectService;
 use App\Services\SalesforceService;
 use Illuminate\Http\RedirectResponse;
@@ -21,13 +22,20 @@ class ProjectTrackingController extends Controller
         private readonly ProjectService $projectService,
         private readonly EmployeeService $employeeService,
         private readonly SalesforceService $salesforceService,
+        private readonly MicrosoftGraphService $microsoftGraphService,
     ) {}
 
     public function index(): View
     {
         $query = ProjectTracking::query()
             ->with('activities')
-            ->withCount(['activities', 'workLogs'])
+            ->withCount([
+                'activities',
+                'workLogs',
+                'activities as overdue_activities_count' => fn ($query) => $query
+                    ->whereDate('current_end_date', '<', today())
+                    ->where('status', '!=', 'completed'),
+            ])
             ->latest();
 
         $projectTrackings = $query->paginate(12);
@@ -65,12 +73,18 @@ class ProjectTrackingController extends Controller
         }
 
         $projectTracking = ProjectTracking::create([
-            ...$request->validated(),
             'external_project_code' => $project['code_projet'],
             'external_project_name' => $project['nom_projet'],
             'external_opportunity_id' => $project['opportunity_id'] ?: null,
             'subsidiary' => $project['subsidiary'],
-            'client_name' => $clientName ?: $request->string('client_name')->toString() ?: null,
+            'client_name' => $clientName ?: null,
+            'location' => $project['location'] ?? null,
+            'description' => $project['description'] ?? null,
+            'current_start_date' => $project['start_date'] ?? null,
+            'current_end_date' => $project['end_date'] ?? null,
+            'ms_group_id' => $project['ms_group_id'] ?? null,
+            'ms_plan_id' => $project['ms_plan_id'] ?? null,
+            'ms_bucket_id' => $project['ms_bucket_id'] ?? null,
             'user_id' => auth()->id(),
             'status' => 'draft',
         ]);
@@ -91,11 +105,31 @@ class ProjectTrackingController extends Controller
             'revisions' => fn ($query) => $query->with(['activity', 'user'])->latest('version'),
         ]);
 
-        $employees = Gate::allows('update', $projectTracking)
-            ? $this->employeeService->getEmployees()
-            : collect();
+        $assigneeChoices = collect();
+        $employees = collect();
+        if (Gate::allows('update', $projectTracking)) {
+            $projectMembers = rescue(
+                fn () => $this->microsoftGraphService->getGroupMembers($projectTracking->ms_group_id),
+                collect(),
+            )
+                ->map(fn (array $member): array => [...$member, 'is_project_member' => true]);
+            $employees = $this->employeeService->getEmployees();
+            $employeeAssignees = $employees
+                ->filter(fn (array $employee): bool => filled($employee['email']))
+                ->map(fn (array $employee): array => [
+                    'id' => null,
+                    'name' => $employee['prenom_nom'],
+                    'email' => mb_strtolower($employee['email']),
+                    'is_project_member' => false,
+                ]);
+            $assigneeChoices = $projectMembers
+                ->merge($employeeAssignees)
+                ->unique('email')
+                ->sortByDesc('is_project_member')
+                ->values();
+        }
 
-        return view('project_trackings.show', compact('projectTracking', 'employees'));
+        return view('project_trackings.show', compact('projectTracking', 'assigneeChoices', 'employees'));
     }
 
     public function edit(ProjectTracking $projectTracking): View

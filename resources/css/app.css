@@ -6,6 +6,9 @@
 @source '../**/*.js';
 
 @theme {
+    --color-gut-blue: #0099cc;
+    --color-gut-orange: #ff8c00;
+    --color-gut-white: #ffffff;
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }

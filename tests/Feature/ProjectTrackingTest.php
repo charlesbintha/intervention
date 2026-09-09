@@ -117,25 +117,38 @@ it('lists every project tracking for a regular user', function () {
         ->assertSee($otherTracking->external_project_name);
 });
 
-it('keeps another users tracking read only for a regular user', function () {
+it('allows a regular user to modify another users tracking', function () {
     $owner = User::factory()->create(['role' => 'user']);
     $other = User::factory()->create(['role' => 'user']);
     $tracking = ProjectTracking::factory()->for($owner)->create();
 
+    $this->mock(MicrosoftGraphService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('getGroupMembers')->once()->andReturn(collect());
+    });
+    $this->mock(EmployeeService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('getEmployees')->once()->andReturn(collect());
+    });
+
     $this->actingAs($other)
         ->get(route('project-trackings.show', $tracking))
         ->assertSuccessful()
-        ->assertDontSee('Modifier')
-        ->assertDontSee('Ajouter une activité au planning');
+        ->assertSee('Modifier')
+        ->assertSee('Ajouter une activité au planning')
+        ->assertDontSee('Supprimer définitivement ce suivi');
 
-    $this->actingAs($other)->get(route('project-trackings.edit', $tracking))->assertForbidden();
+    $this->actingAs($other)->get(route('project-trackings.edit', $tracking))->assertSuccessful();
 
-    $this->actingAs($other)->post(route('project-trackings.actions.store', $tracking), [
-        'title' => 'Action interdite',
-        'responsible_names' => ['Agent Test'],
-        'due_date' => now()->addDay()->toDateString(),
-        'priority' => 'normal',
-    ])->assertForbidden();
+    $this->actingAs($other)->put(route('project-trackings.update', $tracking), [
+        'location' => 'Thiès',
+        'description' => 'Suivi modifié par un utilisateur.',
+        'current_start_date' => now()->toDateString(),
+        'current_end_date' => now()->addMonth()->toDateString(),
+        'status' => 'active',
+    ])->assertSessionHas('success');
+
+    expect($tracking->fresh()->location)->toBe('Thiès')
+        ->and($tracking->fresh()->description)->toBe('Suivi modifié par un utilisateur.')
+        ->and($tracking->fresh()->status)->toBe('active');
 });
 
 it('allows an admin to view another users tracking', function () {

@@ -17,7 +17,9 @@
         @can('update', $projectTracking)
             <div class="flex gap-3">
                 <a href="{{ route('project-trackings.edit', $projectTracking) }}" class="rounded-lg border border-gray-300 bg-white px-4 py-2 font-semibold text-gray-700">Modifier</a>
-                <form action="{{ route('project-trackings.destroy', $projectTracking) }}" method="POST" onsubmit="return confirm('Supprimer définitivement ce suivi et toutes ses données ?')">@csrf @method('DELETE')<button class="rounded-lg bg-red-50 px-4 py-2 font-semibold text-red-700">Supprimer</button></form>
+                @can('delete', $projectTracking)
+                    <form action="{{ route('project-trackings.destroy', $projectTracking) }}" method="POST" onsubmit="return confirm('Supprimer définitivement ce suivi et toutes ses données ?')">@csrf @method('DELETE')<button class="rounded-lg bg-red-50 px-4 py-2 font-semibold text-red-700">Supprimer</button></form>
+                @endcan
             </div>
         @endcan
     </div>

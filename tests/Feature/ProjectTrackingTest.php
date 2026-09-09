@@ -214,6 +214,47 @@ it('updates activity progress from work declarations', function () {
     ]);
 });
 
+it('allows a regular user to edit a work declaration and recalculates progress', function () {
+    $owner = User::factory()->create(['role' => 'user']);
+    $user = User::factory()->create(['role' => 'user']);
+    $tracking = ProjectTracking::factory()->for($owner)->create();
+    $activity = ProjectActivity::factory()->for($tracking)->create([
+        'planned_quantity' => 100,
+        'completed_quantity' => 10,
+    ]);
+    $workLog = $tracking->workLogs()->create([
+        'project_activity_id' => $activity->id,
+        'user_id' => $owner->id,
+        'work_date' => now()->subDay()->toDateString(),
+        'started_at' => now()->subDay()->subHours(2),
+        'ended_at' => now()->subDay()->subHour(),
+        'quantity_completed' => 10,
+        'work_description' => 'Première déclaration des travaux.',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('project-trackings.work-logs.edit', [$tracking, $workLog]))
+        ->assertSuccessful();
+
+    $this->actingAs($user)
+        ->put(route('project-trackings.work-logs.update', [$tracking, $workLog]), [
+            'project_activity_id' => $activity->id,
+            'started_at' => now()->subHours(3)->format('Y-m-d\TH:i'),
+            'ended_at' => now()->subHours(2)->format('Y-m-d\TH:i'),
+            'quantity_completed' => 35,
+            'remaining_quantity_estimate' => 65,
+            'work_description' => 'Déclaration corrigée après contrôle terrain.',
+            'difficulties' => 'Accès au local retardé.',
+        ])
+        ->assertRedirect(route('project-trackings.show', $tracking))
+        ->assertSessionHas('success');
+
+    expect((float) $workLog->fresh()->quantity_completed)->toBe(35.0)
+        ->and($workLog->fresh()->work_description)->toBe('Déclaration corrigée après contrôle terrain.')
+        ->and((float) $activity->fresh()->completed_quantity)->toBe(35.0)
+        ->and($activity->fresh()->status)->toBe('in_progress');
+});
+
 it('automatically orders activities and stores selected people', function () {
     $user = User::factory()->create(['role' => 'user']);
     $tracking = ProjectTracking::factory()->for($user)->create();
@@ -248,6 +289,67 @@ it('automatically orders activities and stores selected people', function () {
         ->and($activity->assigned_agents)->toBe(['Aminata Fall', 'Moussa Ndiaye'])
         ->and($activity->assigned_agent_emails)->toBe(['aminata@example.com', 'moussa@example.com'])
         ->and($activity->external_stakeholders[0]['email'])->toBeNull();
+});
+
+it('allows a regular user to delete an activity from another users tracking', function () {
+    $owner = User::factory()->create(['role' => 'user']);
+    $user = User::factory()->create(['role' => 'user']);
+    $tracking = ProjectTracking::factory()->for($owner)->create();
+    $activity = ProjectActivity::factory()->for($tracking)->create();
+
+    $this->actingAs($user)
+        ->delete(route('project-activities.destroy', $activity))
+        ->assertRedirect(route('project-trackings.show', $tracking))
+        ->assertSessionHas('success');
+
+    $this->assertModelMissing($activity);
+});
+
+it('requires a reason when deleting an activity after baseline approval', function () {
+    $user = User::factory()->create(['role' => 'user']);
+    $tracking = ProjectTracking::factory()->for($user)->create(['baseline_approved_at' => now()]);
+    $activity = ProjectActivity::factory()->for($tracking)->create();
+
+    $this->actingAs($user)
+        ->delete(route('project-activities.destroy', $activity))
+        ->assertSessionHasErrors('change_reason');
+
+    $this->assertModelExists($activity);
+
+    $this->actingAs($user)
+        ->delete(route('project-activities.destroy', $activity), [
+            'change_reason' => 'Activité retirée du périmètre.',
+        ])
+        ->assertSessionHas('success');
+
+    $this->assertModelMissing($activity);
+    $this->assertDatabaseHas('plan_revisions', [
+        'project_tracking_id' => $tracking->id,
+        'reason' => 'Activité retirée du périmètre.',
+    ]);
+});
+
+it('deletes the linked planner task with its latest etag', function () {
+    Cache::flush();
+    config([
+        'services.microsoft_graph.tenant_id' => 'tenant-id',
+        'services.microsoft_graph.client_id' => 'client-id',
+        'services.microsoft_graph.client_secret' => 'client-secret',
+        'services.microsoft_graph.scope' => 'https://graph.microsoft.com/.default',
+    ]);
+
+    Http::fake([
+        'https://login.microsoftonline.com/*' => Http::response(['access_token' => 'token']),
+        'https://graph.microsoft.com/v1.0/planner/tasks/planner-task-id' => Http::sequence()
+            ->push(['id' => 'planner-task-id', '@odata.etag' => 'task-etag'])
+            ->push(null, 204),
+    ]);
+
+    app(MicrosoftGraphService::class)->deletePlannerTask('planner-task-id');
+
+    Http::assertSent(fn ($request): bool => $request->method() === 'DELETE'
+        && $request->url() === 'https://graph.microsoft.com/v1.0/planner/tasks/planner-task-id'
+        && $request->hasHeader('If-Match', 'task-etag'));
 });
 
 it('adds missing assignees to the project group and creates the planner task', function () {

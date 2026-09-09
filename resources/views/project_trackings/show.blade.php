@@ -50,7 +50,19 @@
                         <td class="px-4 py-4 text-gray-600"><p>{{ implode(', ', $activity->assigned_agents ?? []) ?: 'Aucun agent GUT' }}</p>@if(!empty($activity->external_stakeholders))<p class="mt-1 text-xs text-gray-500">Externes : {{ collect($activity->external_stakeholders)->map(fn ($stakeholder) => trim(($stakeholder['first_name'] ?? '').' '.($stakeholder['last_name'] ?? '')))->filter()->implode(', ') }}</p>@endif</td>
                         <td class="px-4 py-4 text-right whitespace-nowrap">{{ number_format((float)$activity->completed_quantity, 2, ',', ' ') }} / {{ number_format((float)$activity->planned_quantity, 2, ',', ' ') }} %</td>
                         <td class="px-4 py-4 min-w-36"><div class="flex justify-between text-xs"><span>Réel</span><strong>{{ $activity->progress_percentage }}%</strong></div><div class="mt-1 h-2 rounded-full bg-gray-200"><div class="h-full rounded-full bg-gut-blue" style="width:{{ $activity->progress_percentage }}%"></div></div></td>
-                        <td class="px-4 py-4">@can('update', $projectTracking)<a href="{{ route('project-activities.edit', $activity) }}" class="text-gut-blue" title="Modifier"><i class="fas fa-pen"></i></a>@endcan</td>
+                        <td class="px-4 py-4">
+                            @can('update', $projectTracking)
+                                <div class="flex items-center justify-end gap-2">
+                                    <a href="{{ route('project-activities.edit', $activity) }}" class="flex h-9 w-9 items-center justify-center rounded-lg text-gut-blue transition-colors hover:bg-sky-50" aria-label="Modifier l’activité" title="Modifier"><i class="fas fa-pen" aria-hidden="true"></i></a>
+                                    <form action="{{ route('project-activities.destroy', $activity) }}" method="POST" data-activity-name="{{ $activity->name }}" onsubmit="return confirmActivityDeletion(this, @js((bool) $projectTracking->baseline_approved_at))">
+                                        @csrf
+                                        @method('DELETE')
+                                        <input type="hidden" name="change_reason" value="">
+                                        <button type="submit" class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-red-600 transition-colors hover:bg-red-50" aria-label="Supprimer l’activité" title="Supprimer"><i class="fas fa-trash" aria-hidden="true"></i></button>
+                                    </form>
+                                </div>
+                            @endcan
+                        </td>
                     </tr>
                 @empty
                     <tr><td colspan="6" class="px-6 py-10 text-center text-gray-500">Aucune activité. Construisez le planning ci-dessous.</td></tr>
@@ -73,7 +85,7 @@
         </div>
         <div class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             @forelse($projectTracking->workLogs as $log)
-                <div class="rounded-lg border border-gray-200 p-4"><div class="flex justify-between gap-3"><div><p class="font-semibold">{{ $log->activity->name }}</p><p class="text-xs text-gray-500">Du {{ ($log->started_at ?? $log->work_date)->format('d/m/Y H:i') }} au {{ ($log->ended_at ?? $log->work_date)->format('d/m/Y H:i') }} · {{ $log->user->name }}</p></div>@can('update', $projectTracking)<form action="{{ route('project-trackings.work-logs.destroy', [$projectTracking, $log]) }}" method="POST" onsubmit="return confirm('Supprimer cette déclaration ?')">@csrf @method('DELETE')<button aria-label="Supprimer cette déclaration" class="cursor-pointer text-red-500"><i class="fas fa-trash" aria-hidden="true"></i></button></form>@endcan</div><p class="mt-2 text-sm">{{ $log->work_description }}</p><p class="mt-2 text-sm font-semibold text-gut-blue">+ {{ number_format((float)$log->quantity_completed, 2, ',', ' ') }} %</p>@if($log->difficulties)<p class="mt-2 text-sm text-orange-700">Difficulté : {{ $log->difficulties }}</p>@endif</div>
+                <div class="rounded-lg border border-gray-200 p-4"><div class="flex justify-between gap-3"><div><p class="font-semibold">{{ $log->activity->name }}</p><p class="text-xs text-gray-500">Du {{ ($log->started_at ?? $log->work_date)->format('d/m/Y H:i') }} au {{ ($log->ended_at ?? $log->work_date)->format('d/m/Y H:i') }} · {{ $log->user->name }}</p></div>@can('update', $projectTracking)<div class="flex items-center gap-2"><a href="{{ route('project-trackings.work-logs.edit', [$projectTracking, $log]) }}" aria-label="Modifier cette déclaration" title="Modifier" class="flex h-9 w-9 items-center justify-center rounded-lg text-gut-blue transition-colors hover:bg-sky-50"><i class="fas fa-pen" aria-hidden="true"></i></a><form action="{{ route('project-trackings.work-logs.destroy', [$projectTracking, $log]) }}" method="POST" onsubmit="return confirm('Supprimer cette déclaration ?')">@csrf @method('DELETE')<button aria-label="Supprimer cette déclaration" title="Supprimer" class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-red-500 transition-colors hover:bg-red-50"><i class="fas fa-trash" aria-hidden="true"></i></button></form></div>@endcan</div><p class="mt-2 text-sm">{{ $log->work_description }}</p><p class="mt-2 text-sm font-semibold text-gut-blue">+ {{ number_format((float)$log->quantity_completed, 2, ',', ' ') }} %</p>@if($log->difficulties)<p class="mt-2 text-sm text-orange-700">Difficulté : {{ $log->difficulties }}</p>@endif</div>
             @empty<p class="md:col-span-2 xl:col-span-3 text-gray-500">Aucun travail déclaré.</p>@endforelse
         </div>
     </section>
@@ -187,6 +199,26 @@
             modal.close();
             document.body.style.overflow = '';
         }
+    }
+
+    function confirmActivityDeletion(form, requiresReason) {
+        if (requiresReason) {
+            const reason = window.prompt('Pourquoi cette activité doit-elle être supprimée ?');
+
+            if (reason === null) {
+                return false;
+            }
+
+            if (reason.trim().length < 5) {
+                window.alert('La justification doit contenir au moins 5 caractères.');
+
+                return false;
+            }
+
+            form.elements.change_reason.value = reason.trim();
+        }
+
+        return window.confirm(`Supprimer définitivement l’activité « ${form.dataset.activityName} » ?`);
     }
 
     document.querySelectorAll('dialog').forEach((modal) => {

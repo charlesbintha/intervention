@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\DeleteProjectActivityRequest;
 use App\Http\Requests\StoreProjectActivityRequest;
 use App\Http\Requests\UpdateProjectActivityRequest;
+use App\Jobs\DeletePlannerTask;
 use App\Jobs\SyncProjectActivityToPlanner;
 use App\Models\PlanRevision;
 use App\Models\ProjectActivity;
@@ -11,7 +13,6 @@ use App\Models\ProjectTracking;
 use App\Services\EmployeeService;
 use App\Services\MicrosoftGraphService;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
@@ -73,21 +74,34 @@ class ProjectActivityController extends Controller
             ->with('success', 'L’activité et le planning courant ont été mis à jour.');
     }
 
-    public function destroy(Request $request, ProjectActivity $activity): RedirectResponse
+    public function destroy(DeleteProjectActivityRequest $request, ProjectActivity $activity): RedirectResponse
     {
-        Gate::authorize('update', $activity->projectTracking);
-
         if ($activity->projectTracking->baseline_approved_at) {
-            $validated = $request->validate(['change_reason' => ['required', 'string', 'min:5']]);
-            $this->recordRevision($activity->projectTracking, $activity, $validated['change_reason'], $activity->toArray(), null);
+            $this->recordRevision(
+                $activity->projectTracking,
+                $activity,
+                $request->string('change_reason')->toString(),
+                $activity->toArray(),
+                null,
+            );
         }
 
         $tracking = $activity->projectTracking;
+        $plannerTaskId = $activity->ms_planner_task_id;
+        $plannerDeletionQueued = filled($plannerTaskId) && $this->microsoftGraphService->isConfigured();
         $activity->delete();
         $this->syncCurrentSchedule($tracking);
 
+        if ($plannerDeletionQueued) {
+            DeletePlannerTask::dispatch($plannerTaskId)->afterCommit();
+        }
+
+        $message = $plannerDeletionQueued
+            ? 'L’activité a été supprimée. La suppression de sa tâche Planner est en cours.'
+            : 'L’activité a été supprimée du planning courant.';
+
         return redirect()->route('project-trackings.show', $tracking)
-            ->with('success', 'L’activité a été supprimée du planning courant.');
+            ->with('success', $message);
     }
 
     private function prepareData(array $data): array

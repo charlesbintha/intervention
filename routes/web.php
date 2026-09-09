@@ -94,6 +94,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->name('project-activities.destroy');
     Route::post('project-trackings/{projectTracking}/work-logs', [WorkLogController::class, 'store'])
         ->name('project-trackings.work-logs.store');
+    Route::get('project-trackings/{projectTracking}/work-logs/{workLog}/edit', [WorkLogController::class, 'edit'])
+        ->name('project-trackings.work-logs.edit');
+    Route::put('project-trackings/{projectTracking}/work-logs/{workLog}', [WorkLogController::class, 'update'])
+        ->name('project-trackings.work-logs.update');
     Route::delete('project-trackings/{projectTracking}/work-logs/{workLog}', [WorkLogController::class, 'destroy'])
         ->name('project-trackings.work-logs.destroy');
     Route::post('project-trackings/{projectTracking}/blockers', [ProjectBlockerController::class, 'store'])

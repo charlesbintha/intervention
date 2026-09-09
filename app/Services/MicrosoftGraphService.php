@@ -115,7 +115,7 @@ class MicrosoftGraphService
             ->mapWithKeys(fn (string $userId): array => [$userId => null])
             ->all();
         $payload['assignments'] = [...$removedAssignments, ...$assignments];
-        $etag = (string) ($task->json('@odata.etag') ?? $task->header('ETag'));
+        $etag = (string) (($task->json()['@odata.etag'] ?? null) ?? $task->header('ETag'));
 
         $response = $this->graph()
             ->withHeaders(['If-Match' => $etag])
@@ -123,6 +123,33 @@ class MicrosoftGraphService
         $this->throwForGraphError($response->successful(), $response->json(), 'Impossible de mettre à jour la tâche Planner.');
 
         return $activity->ms_planner_task_id;
+    }
+
+    public function deletePlannerTask(string $taskId): void
+    {
+        $taskPath = '/planner/tasks/'.rawurlencode($taskId);
+        $task = $this->graph()->get($taskPath);
+
+        if ($task->notFound()) {
+            return;
+        }
+
+        $this->throwForGraphError($task->successful(), $task->json(), 'La tâche Planner liée est introuvable.');
+        $etag = (string) (($task->json()['@odata.etag'] ?? null) ?? $task->header('ETag'));
+
+        if (blank($etag)) {
+            throw new RuntimeException('Microsoft Planner n’a pas retourné la version de la tâche à supprimer.');
+        }
+
+        $response = $this->graph()
+            ->withHeaders(['If-Match' => $etag])
+            ->delete($taskPath);
+
+        if ($response->notFound()) {
+            return;
+        }
+
+        $this->throwForGraphError($response->successful(), $response->json(), 'Impossible de supprimer la tâche Planner.');
     }
 
     /** @return array{id: string, name: string, email: string} */

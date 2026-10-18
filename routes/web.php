@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InterventionUteController;
 use App\Http\Controllers\MaintenanceController;
+use App\Http\Controllers\MicrosoftSsoController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectActionController;
 use App\Http\Controllers\ProjectActivityController;
@@ -16,7 +17,12 @@ use Illuminate\Support\Facades\Route;
 
 // Routes d'authentification (publiques)
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-Route::post('/login', [AuthController::class, 'login']);
+Route::get('/auth/microsoft/redirect', [MicrosoftSsoController::class, 'redirect'])
+    ->middleware('throttle:20,1')
+    ->name('auth.microsoft.redirect');
+Route::get('/auth/microsoft/callback', [MicrosoftSsoController::class, 'callback'])
+    ->middleware('throttle:20,1')
+    ->name('auth.microsoft.callback');
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
 // Routes protégées par authentification et compte actif
@@ -137,6 +143,5 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/dashboard', [\App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
         Route::resource('users', UserController::class);
         Route::post('users/{user}/toggle-status', [UserController::class, 'toggleStatus'])->name('users.toggle-status');
-        Route::post('users/{user}/regenerate-password', [UserController::class, 'regeneratePassword'])->name('users.regenerate-password');
     });
 });

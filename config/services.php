@@ -61,4 +61,14 @@ return [
         'auto_sync' => env('MS_GRAPH_AUTO_SYNC', true),
     ],
 
+    'microsoft_sso' => [
+        'tenant_id' => env('MICROSOFT_SSO_TENANT_ID', env('MS_GRAPH_TENANT_ID')),
+        'client_id' => env('MICROSOFT_SSO_CLIENT_ID', env('MS_GRAPH_CLIENT_ID')),
+        'client_secret' => env('MICROSOFT_SSO_CLIENT_SECRET', env('MS_GRAPH_CLIENT_SECRET')),
+        'redirect_uri' => env('MICROSOFT_SSO_REDIRECT_URI'),
+        'scope' => env('MICROSOFT_SSO_SCOPE', 'openid profile email User.Read'),
+        'prompt' => env('MICROSOFT_SSO_PROMPT'),
+        'admin_emails' => env('MICROSOFT_SSO_ADMIN_EMAILS', ''),
+    ],
+
 ];

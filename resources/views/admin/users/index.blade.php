@@ -79,6 +79,7 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm text-gray-900">{{ $user->email }}</div>
+                                <div class="mt-1 text-xs {{ $user->microsoft_id ? 'text-green-600' : 'text-amber-600' }}">{{ $user->microsoft_id ? 'Compte Microsoft lié' : 'En attente de première connexion' }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 @if($user->role === 'admin')
@@ -116,13 +117,6 @@
                                             @csrf
                                             <button type="submit" class="text-{{ $user->is_active ? 'orange' : 'green' }}-600 hover:text-{{ $user->is_active ? 'orange' : 'green' }}-800 transition" title="{{ $user->is_active ? 'Désactiver' : 'Activer' }}">
                                                 <i class="fas fa-{{ $user->is_active ? 'ban' : 'check' }}"></i>
-                                            </button>
-                                        </form>
-
-                                        <form action="{{ route('admin.users.regenerate-password', $user) }}" method="POST" class="inline" onsubmit="handleFormSubmitWithConfirmation(event, 'password')">
-                                            @csrf
-                                            <button type="submit" class="text-blue-600 hover:text-blue-800 transition" title="Régénérer le mot de passe">
-                                                <i class="fas fa-key"></i>
                                             </button>
                                         </form>
 

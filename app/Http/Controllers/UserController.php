@@ -2,90 +2,77 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\UpdateUserRequest;
 use App\Models\User;
-use App\Notifications\NewUserCredentials;
 use App\Services\EmployeeService;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\View\View;
 
 class UserController extends Controller
 {
-    public function index()
+    public function index(): View
     {
         $users = User::latest()->paginate(10);
 
         return view('admin.users.index', compact('users'));
     }
 
-    public function create(EmployeeService $employeeService)
+    public function create(EmployeeService $employeeService): View
     {
         $employees = $employeeService->getEmployees();
 
         return view('admin.users.create', compact('employees'));
     }
 
-    public function store(Request $request)
+    public function store(StoreUserRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'role' => 'required|in:admin,user',
-            'signature' => 'nullable|image|mimes:png,jpg,jpeg|max:2048',
-        ]);
-
-        // Générer un mot de passe aléatoire
-        $password = Str::random(12);
+        $validated = $request->validated();
 
         $userData = [
             'name' => $validated['name'],
             'email' => $validated['email'],
             'role' => $validated['role'],
-            'password' => Hash::make($password),
             'is_active' => true,
         ];
 
-        // Gérer l'upload de la signature
         if ($request->hasFile('signature')) {
             $path = $request->file('signature')->store('signatures', 'public');
             $userData['signature'] = $path;
         }
 
-        $user = User::create($userData);
-
-        // Envoyer l'email avec les identifiants
-        $user->notify(new NewUserCredentials($password));
+        User::create($userData);
 
         return redirect()->route('admin.users.index')
-            ->with('success', "Utilisateur créé avec succès. Un email a été envoyé à {$user->email} avec ses identifiants.");
+            ->with('success', 'Utilisateur créé. Il pourra se connecter avec son compte Microsoft.');
     }
 
-    public function show(User $user)
+    public function show(User $user): RedirectResponse
     {
-        return view('admin.users.show', compact('user'));
+        return redirect()->route('admin.users.edit', $user);
     }
 
-    public function edit(User $user)
+    public function edit(User $user): View
     {
         return view('admin.users.edit', compact('user'));
     }
 
-    public function update(Request $request, User $user)
+    public function update(UpdateUserRequest $request, User $user): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,'.$user->id,
-            'role' => 'required|in:admin,user',
-            'signature' => 'nullable|image|mimes:png,jpg,jpeg|max:2048',
-        ]);
+        $validated = $request->validated();
+        $emailChanged = $user->email !== $validated['email'];
 
-        // Gérer l'upload de la signature
         if ($request->hasFile('signature')) {
-            // Supprimer l'ancienne signature si elle existe
             if ($user->signature) {
                 Storage::disk('public')->delete($user->signature);
             }
             $validated['signature'] = $request->file('signature')->store('signatures', 'public');
+        }
+
+        if ($emailChanged) {
+            $validated['microsoft_id'] = null;
         }
 
         $user->update($validated);
@@ -94,7 +81,7 @@ class UserController extends Controller
             ->with('success', 'Utilisateur mis à jour avec succès.');
     }
 
-    public function destroy(User $user)
+    public function destroy(User $user): RedirectResponse
     {
         // Empêcher la suppression de son propre compte
         if ($user->id === auth()->id()) {
@@ -107,7 +94,7 @@ class UserController extends Controller
             ->with('success', 'Utilisateur supprimé avec succès.');
     }
 
-    public function toggleStatus(User $user)
+    public function toggleStatus(User $user): RedirectResponse
     {
         // Empêcher la désactivation de son propre compte
         if ($user->id === auth()->id()) {
@@ -123,22 +110,7 @@ class UserController extends Controller
         return back()->with('success', "Le compte a été {$status} avec succès.");
     }
 
-    public function regeneratePassword(User $user)
-    {
-        // Générer un nouveau mot de passe
-        $password = Str::random(12);
-
-        $user->update([
-            'password' => Hash::make($password),
-        ]);
-
-        // Envoyer l'email avec le nouveau mot de passe
-        $user->notify(new NewUserCredentials($password, true));
-
-        return back()->with('success', "Un nouveau mot de passe a été généré et envoyé à {$user->email}.");
-    }
-
-    public function getEmployees(EmployeeService $employeeService)
+    public function getEmployees(EmployeeService $employeeService): JsonResponse
     {
         $employees = $employeeService->getEmployees();
 

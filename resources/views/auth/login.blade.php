@@ -35,43 +35,15 @@
                 </div>
             @endif
 
-            <!-- Formulaire de connexion -->
-            <form class="space-y-5" action="{{ route('login') }}" method="POST">
-                @csrf
-                <div class="space-y-4">
-                    <div>
-                        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
-                            Email
-                        </label>
-                        <input id="email" name="email" type="email" required
-                            value="{{ old('email') }}"
-                            class="appearance-none rounded-lg relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            placeholder="votreemail@exemple.com">
-                        @error('email')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
+            <a href="{{ route('auth.microsoft.redirect') }}"
+                class="flex w-full items-center justify-center gap-3 rounded-lg bg-[#2F2F2F] px-4 py-3 font-semibold text-white transition hover:bg-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                <svg aria-hidden="true" viewBox="0 0 23 23" class="h-5 w-5">
+                    <path fill="#f35325" d="M1 1h10v10H1z"/><path fill="#81bc06" d="M12 1h10v10H12z"/><path fill="#05a6f0" d="M1 12h10v10H1z"/><path fill="#ffba08" d="M12 12h10v10H12z"/>
+                </svg>
+                Se connecter avec Microsoft
+            </a>
 
-                    <div>
-                        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">
-                            Mot de passe
-                        </label>
-                        <input id="password" name="password" type="password" required
-                            class="appearance-none rounded-lg relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            placeholder="Votre mot de passe">
-                        @error('password')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
-                </div>
-
-                <div>
-                    <button type="submit"
-                        class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg bg-gut-blue text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition">
-                        Se connecter
-                    </button>
-                </div>
-            </form>
+            <p class="mt-4 text-center text-xs text-gray-500">Utilisez votre compte professionnel Microsoft autorisé.</p>
 
             <div class="text-center text-sm text-gray-500 mt-6 pt-4 border-t border-gray-200">
                 <p>Besoin d'aide ? Contactez votre administrateur</p>

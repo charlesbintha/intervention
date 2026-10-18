@@ -133,28 +133,9 @@
                     </p>
                 </div>
 
-                <!-- Actions rapides -->
-                <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
-                    <div class="flex">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-exclamation-triangle text-yellow-600 text-xl"></i>
-                        </div>
-                        <div class="ml-3">
-                            <h3 class="text-sm font-medium text-gray-800">Actions rapides disponibles</h3>
-                            <div class="mt-2 text-sm text-gray-700 space-y-2">
-                                <p>
-                                    <i class="fas fa-key text-blue-600 mr-2"></i>
-                                    Pour réinitialiser le mot de passe, retournez à la liste et utilisez l'icône
-                                    <i class="fas fa-key text-xs"></i>
-                                </p>
-                                <p>
-                                    <i class="fas fa-ban text-orange-600 mr-2"></i>
-                                    Pour désactiver le compte, utilisez l'icône
-                                    <i class="fas fa-ban text-xs"></i> dans la liste
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+                <div class="rounded border-l-4 border-blue-400 bg-blue-50 p-4 text-sm text-gray-700">
+                    <i class="fab fa-microsoft mr-2 text-blue-600"></i>
+                    Ce compte utilise exclusivement Microsoft SSO. Modifier l’adresse email réinitialisera la liaison Microsoft actuelle.
                 </div>
             </div>
 

@@ -12,7 +12,7 @@
             <i class="fas fa-user-plus text-gut-blue mr-2"></i>
             Créer un Nouvel Utilisateur
         </h1>
-        <p class="mt-2 text-sm text-gray-600">L'utilisateur recevra un email avec ses identifiants de connexion</p>
+        <p class="mt-2 text-sm text-gray-600">Autorisez un collaborateur à accéder au portail avec son compte Microsoft</p>
     </div>
 
     <div class="bg-white rounded-lg shadow-lg p-8">
@@ -81,7 +81,7 @@
                         </p>
                     @enderror
                     <p class="mt-1 text-xs text-gray-500">
-                        <i class="fas fa-info-circle mr-1"></i>Un email sera envoyé à cette adresse avec les identifiants de connexion
+                        <i class="fas fa-info-circle mr-1"></i>Cette adresse doit correspondre au compte professionnel Microsoft
                     </p>
                 </div>
 
@@ -143,10 +143,10 @@
                         <div class="ml-3">
                             <h3 class="text-sm font-medium text-gray-800">Informations importantes</h3>
                             <div class="mt-2 text-sm text-gray-700 space-y-1">
-                                <p><i class="fas fa-check text-green-600 mr-2"></i>Un mot de passe sera généré automatiquement</p>
-                                <p><i class="fas fa-check text-green-600 mr-2"></i>Un email sera envoyé avec les identifiants de connexion</p>
+                                <p><i class="fas fa-check text-green-600 mr-2"></i>Aucun mot de passe local ne sera créé</p>
+                                <p><i class="fas fa-check text-green-600 mr-2"></i>L’identité sera liée lors de la première connexion Microsoft</p>
                                 <p><i class="fas fa-check text-green-600 mr-2"></i>Le compte sera activé par défaut</p>
-                                <p><i class="fas fa-check text-green-600 mr-2"></i>L'utilisateur pourra se connecter immédiatement</p>
+                                <p><i class="fas fa-check text-green-600 mr-2"></i>L’utilisateur pourra se connecter immédiatement avec Microsoft</p>
                             </div>
                         </div>
                     </div>

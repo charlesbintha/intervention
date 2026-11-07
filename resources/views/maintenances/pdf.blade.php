@@ -230,6 +230,7 @@
     </style>
 </head>
 <body>
+    <x-ai-revision-notice :model="$maintenance" />
     <!-- En-tête avec 3 colonnes -->
     @php
         $logoPath = public_path('images/logo.png');
@@ -408,7 +409,7 @@
     </div>
 
     <!-- Travaux effectués -->
-    @if($maintenance->layout_content)
+    @if(\App\Services\ReviewableText::hasContent($maintenance->layout_content))
     <div class="section-title">Travaux ou tâches effectués :</div>
     <div class="section-content">
         {!! quill_to_html($maintenance->layout_content) !!}

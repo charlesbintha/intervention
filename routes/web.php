@@ -11,6 +11,7 @@ use App\Http\Controllers\ProjectActivityController;
 use App\Http\Controllers\ProjectBlockerController;
 use App\Http\Controllers\ProjectTrackingController;
 use App\Http\Controllers\SurveyController;
+use App\Http\Controllers\TextReviewController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkLogController;
 use Illuminate\Support\Facades\Route;
@@ -28,6 +29,14 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->n
 // Routes protégées par authentification et compte actif
 Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/', [HomeController::class, 'index'])->name('home');
+
+    Route::prefix('text-reviews')->name('text-reviews.')->where(['id' => '[0-9]+', 'revision' => '[0-9]+'])->group(function () {
+        Route::post('/preview', [TextReviewController::class, 'preview'])->middleware('throttle:10,1')->name('preview');
+        Route::post('/{type}/{id}/preview', [TextReviewController::class, 'previewSaved'])->middleware('throttle:10,1')->name('saved-preview');
+        Route::put('/{type}/{id}', [TextReviewController::class, 'apply'])->middleware('throttle:20,1')->name('apply');
+        Route::get('/{type}/{id}/history', [TextReviewController::class, 'history'])->name('history');
+        Route::get('/{type}/{id}/history/{revision}', [TextReviewController::class, 'snapshot'])->name('snapshot');
+    });
 
     // Routes de profil
     Route::get('/profile/signature', [ProfileController::class, 'editSignature'])->name('profile.signature.edit');

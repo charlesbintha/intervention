@@ -1,9 +1,10 @@
-@props(['content' => '', 'label' => 'Contenu'])
+@props(['content' => '', 'label' => 'Contenu', 'model' => null])
 
-@if($content)
+@if(\App\Services\ReviewableText::hasContent($content))
 <div class="bg-white rounded-lg shadow-lg overflow-hidden mb-6">
-    <div class="bg-gradient-to-r from-gut-blue to-gut-orange text-white px-6 py-4">
+    <div class="gradient-gut text-white px-6 py-4 flex items-center justify-between gap-3">
         <h2 class="text-xl font-semibold">{{ $label }}</h2>
+        @if($model)<x-ai-text-button :model="$model" field="layout_content" />@endif
     </div>
     <div class="p-6">
         <div id="quill-viewer-{{ md5($content) }}" class="prose max-w-none bg-gray-50 p-4 rounded-lg min-h-[100px]">

@@ -3,6 +3,7 @@
 @section('title', 'Détails Survey - Portail Intervention')
 
 @section('content')
+<x-ai-revision-notice :model="$survey" />
 <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="mb-8 flex justify-between items-center">
         <div>
@@ -128,9 +129,9 @@
                 </div>
             </div>
             <div>
-                <p class="text-sm text-gray-600 mb-2">But du Survey</p>
+                <div class="mb-2 flex items-center justify-between gap-3"><p class="text-sm text-gray-600">But du Survey</p><x-ai-text-button :model="$survey" field="purpose" /></div>
                 <div class="bg-gray-50 p-4 rounded-lg">
-                    <p class="text-gray-800">{{ $survey->purpose }}</p>
+                    <p class="whitespace-pre-wrap text-gray-800">{{ $survey->purpose }}</p>
                 </div>
             </div>
         </div>
@@ -183,9 +184,9 @@
         </div>
     @endif
 
-    <x-quill-viewer :content="$survey->layout_content" label="Contenu du plan" />
+    <x-quill-viewer :content="$survey->layout_content" :model="$survey" label="Contenu du plan" />
 
-    @if(!$survey->layout_content)
+    @if(!\App\Services\ReviewableText::hasContent($survey->layout_content))
         <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
             <div class="flex">
                 <div class="flex-shrink-0">
@@ -194,9 +195,12 @@
                 <div class="ml-3">
                     <p class="text-sm text-yellow-700">
                         La mise en page n'a pas encore été complétée.
+                        Les éventuelles pièces jointes sont disponibles dans leur section ci-dessous.
+                        @if($survey->status !== 'validated' && (auth()->user()->isAdmin() || auth()->id() === $survey->user_id))
                         <a href="{{ route('surveys.layout', $survey) }}" class="font-medium underline text-yellow-700 hover:text-yellow-600">
                             Compléter la mise en page
                         </a>
+                        @endif
                     </p>
                 </div>
             </div>

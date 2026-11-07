@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
+use App\Observers\TextReviewObserver;
+use App\Services\ReviewableText;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -20,6 +22,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-         Schema::defaultStringLength(191);
+        Schema::defaultStringLength(191);
+
+        foreach (ReviewableText::types() as $model) {
+            $model::observe(TextReviewObserver::class);
+        }
     }
 }

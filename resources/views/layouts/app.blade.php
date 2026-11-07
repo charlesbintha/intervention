@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Portail Intervention - GUT')</title>
     <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -254,5 +255,19 @@
     </script>
 
     @stack('scripts')
+    @auth
+        @if(config('text_review.enabled'))
+            @php
+                $aiTextReviewConfig = [
+                    'previewUrl' => route('text-reviews.preview'),
+                    'onSave' => (bool) config('text_review.on_save'),
+                    'fields' => collect(\App\Services\ReviewableText::types())->mapWithKeys(fn ($class, $type) => [$type => \App\Services\ReviewableText::fields($type)]),
+                    'previous' => ['type' => old('_ai_type'), 'id' => old('_ai_id'), 'tokens' => old('_ai_reviews', [])],
+                ];
+            @endphp
+            <script id="ai-text-review-config" type="application/json">@json($aiTextReviewConfig)</script>
+            <script src="{{ asset('js/ai-text-review.js') }}?v={{ filemtime(public_path('js/ai-text-review.js')) }}" defer></script>
+        @endif
+    @endauth
 </body>
 </html>

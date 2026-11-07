@@ -116,6 +116,7 @@
     </style>
 </head>
 <body>
+    <x-ai-revision-notice :model="$interventionUte" />
     <div class="header">
         @php
             $logoPath = public_path('images/logo.png');

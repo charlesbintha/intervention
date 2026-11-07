@@ -3,6 +3,7 @@
 @section('title', 'Détails Maintenance - Portail Intervention')
 
 @section('content')
+<x-ai-revision-notice :model="$maintenance" />
 <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="mb-8 flex justify-between items-center">
         <div>
@@ -128,9 +129,9 @@
                 </div>
             </div>
             <div>
-                <p class="text-sm text-gray-600 mb-2">But de la Maintenance</p>
+                <div class="mb-2 flex items-center justify-between gap-3"><p class="text-sm text-gray-600">But de la Maintenance</p><x-ai-text-button :model="$maintenance" field="purpose" /></div>
                 <div class="bg-gray-50 p-4 rounded-lg">
-                    <p class="text-gray-800">{{ $maintenance->purpose }}</p>
+                    <p class="whitespace-pre-wrap text-gray-800">{{ $maintenance->purpose }}</p>
                 </div>
             </div>
 
@@ -205,13 +206,16 @@
         </div>
     @endif
 
-    @if($maintenance->layout_content)
+    @if(\App\Services\ReviewableText::hasContent($maintenance->layout_content))
         <div class="bg-white rounded-lg shadow-lg overflow-hidden mb-6">
-            <div class="bg-gradient-to-r from-gut-blue to-gut-orange text-white px-6 py-4 flex justify-between items-center">
+            <div class="gradient-gut text-white px-6 py-4 flex justify-between items-center">
                 <h2 class="text-xl font-semibold">Contenu du plan</h2>
+                <x-ai-text-button :model="$maintenance" field="layout_content" />
+                @if($maintenance->status !== 'validated' && (auth()->user()->isAdmin() || auth()->id() === $maintenance->user_id))
                 <a href="{{ route('maintenances.layout', $maintenance) }}" class="px-4 py-2 bg-white text-gut-orange rounded-lg hover:bg-gray-100 transition text-sm font-medium">
                     <i class="fas fa-edit mr-2"></i>Modifier
                 </a>
+                @endif
             </div>
             <div class="p-6">
                 <div id="quill-viewer-maintenance-{{ $maintenance->id }}" class="prose max-w-none bg-gray-50 p-4 rounded-lg min-h-[100px]">
@@ -275,9 +279,12 @@
                 <div class="ml-3">
                     <p class="text-sm text-yellow-700">
                         La mise en page n'a pas encore été complétée.
+                        Les éventuelles pièces jointes sont disponibles dans leur section ci-dessous.
+                        @if($maintenance->status !== 'validated' && (auth()->user()->isAdmin() || auth()->id() === $maintenance->user_id))
                         <a href="{{ route('maintenances.layout', $maintenance) }}" class="font-medium underline text-yellow-700 hover:text-yellow-600">
                             Compléter la mise en page
                         </a>
+                        @endif
                     </p>
                 </div>
             </div>

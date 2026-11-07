@@ -3,6 +3,7 @@
 @section('title', 'Détails Intervention - Portail Intervention')
 
 @section('content')
+<x-ai-revision-notice :model="$interventionUte" />
 <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="mb-8 flex justify-between items-center">
         <div>
@@ -137,17 +138,17 @@
             </div>
 
             <div class="mb-6">
-                <p class="text-sm text-gray-600 mb-2">But de l'intervention</p>
+                <div class="mb-2 flex items-center justify-between gap-3"><p class="text-sm text-gray-600">But de l'intervention</p><x-ai-text-button :model="$interventionUte" field="purpose" /></div>
                 <div class="bg-gray-50 p-4 rounded-lg">
-                    <p class="text-gray-800">{{ $interventionUte->purpose }}</p>
+                    <p class="whitespace-pre-wrap text-gray-800">{{ $interventionUte->purpose }}</p>
                 </div>
             </div>
 
             @if($interventionUte->observations)
                 <div>
-                    <p class="text-sm text-gray-600 mb-2">Observations / Recommandations</p>
+                    <div class="mb-2 flex items-center justify-between gap-3"><p class="text-sm text-gray-600">Observations / Recommandations</p><x-ai-text-button :model="$interventionUte" field="observations" /></div>
                     <div class="bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-400">
-                        <p class="text-gray-800">{{ $interventionUte->observations }}</p>
+                        <p class="whitespace-pre-wrap text-gray-800">{{ $interventionUte->observations }}</p>
                     </div>
                 </div>
             @endif

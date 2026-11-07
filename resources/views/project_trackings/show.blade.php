@@ -24,6 +24,10 @@
         @endcan
     </div>
 
+    @if($projectTracking->description)
+        <section class="rounded-xl bg-white p-5 shadow-sm"><div class="flex items-center justify-between gap-3"><h2 class="font-semibold">Description du suivi</h2><x-ai-text-button :model="$projectTracking" field="description" /></div><p class="mt-2 whitespace-pre-wrap text-sm text-gray-700">{{ $projectTracking->description }}</p></section>
+    @endif
+
     @if($errors->any())<div class="rounded-lg bg-red-50 p-4 text-red-700"><ul class="list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
 
     <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -45,7 +49,7 @@
                 <tbody class="divide-y divide-gray-100">
                 @forelse($projectTracking->activities as $activity)
                     <tr>
-                        <td class="px-4 py-4"><p class="text-xs font-semibold uppercase text-gut-blue">{{ $activity->lot_name }}{{ $activity->phase_name ? ' · '.$activity->phase_name : '' }}</p><div class="flex flex-wrap items-center gap-2"><p class="font-semibold text-gray-900">{{ $activity->name }}</p>@if($activity->is_overdue)<span class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">En retard</span>@endif @if($activity->planner_sync_status === 'synced')<span class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-700">Planner synchronisé</span>@elseif(in_array($activity->planner_sync_status, ['pending', 'syncing'], true))<span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">Synchronisation Planner</span>@elseif($activity->planner_sync_status === 'failed')<span class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700" title="{{ $activity->planner_sync_error }}">Échec Planner</span>@endif</div><p class="text-xs text-gray-500">{{ ['not_started'=>'Non démarrée','in_progress'=>'En cours','completed'=>'Terminée','suspended'=>'Suspendue','blocked'=>'Bloquée'][$activity->status] }}</p></td>
+                        <td class="px-4 py-4"><p class="text-xs font-semibold uppercase text-gut-blue">{{ $activity->lot_name }}{{ $activity->phase_name ? ' · '.$activity->phase_name : '' }}</p><div class="flex flex-wrap items-center gap-2"><p class="font-semibold text-gray-900">{{ $activity->name }}</p><x-ai-text-button :model="$activity" field="name" />@if($activity->is_overdue)<span class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">En retard</span>@endif @if($activity->planner_sync_status === 'synced')<span class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-700">Planner synchronisé</span>@elseif(in_array($activity->planner_sync_status, ['pending', 'syncing'], true))<span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">Synchronisation Planner</span>@elseif($activity->planner_sync_status === 'failed')<span class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700" title="{{ $activity->planner_sync_error }}">Échec Planner</span>@endif</div><p class="text-xs text-gray-500">{{ ['not_started'=>'Non démarrée','in_progress'=>'En cours','completed'=>'Terminée','suspended'=>'Suspendue','blocked'=>'Bloquée'][$activity->status] }}</p></td>
                         <td class="px-4 py-4 whitespace-nowrap">{{ $activity->current_start_date->format('d/m/Y') }}<br>{{ $activity->current_end_date->format('d/m/Y') }}@if($activity->baseline_end_date && !$activity->baseline_end_date->equalTo($activity->current_end_date))<p class="text-xs text-orange-600">Initiale : {{ $activity->baseline_end_date->format('d/m/Y') }}</p>@endif</td>
                         <td class="px-4 py-4 text-gray-600"><p>{{ implode(', ', $activity->assigned_agents ?? []) ?: 'Aucun agent GUT' }}</p>@if(!empty($activity->external_stakeholders))<p class="mt-1 text-xs text-gray-500">Externes : {{ collect($activity->external_stakeholders)->map(fn ($stakeholder) => trim(($stakeholder['first_name'] ?? '').' '.($stakeholder['last_name'] ?? '')))->filter()->implode(', ') }}</p>@endif</td>
                         <td class="px-4 py-4 text-right whitespace-nowrap">{{ number_format((float)$activity->completed_quantity, 2, ',', ' ') }} / {{ number_format((float)$activity->planned_quantity, 2, ',', ' ') }} %</td>
@@ -64,6 +68,13 @@
                             @endcan
                         </td>
                     </tr>
+                    @if($activity->description || $activity->deliverable)
+                        <tr><td colspan="6" class="bg-gray-50 px-4 pb-4">
+                            @foreach(['description' => 'Description', 'deliverable' => 'Livrable attendu'] as $field => $label)
+                                @if($activity->$field)<div class="flex items-start justify-between gap-3 py-1"><p class="whitespace-pre-wrap text-sm text-gray-700">{{ $label }} : {{ $activity->$field }}</p><x-ai-text-button :model="$activity" :field="$field" /></div>@endif
+                            @endforeach
+                        </td></tr>
+                    @endif
                 @empty
                     <tr><td colspan="6" class="px-6 py-10 text-center text-gray-500">Aucune activité. Construisez le planning ci-dessous.</td></tr>
                 @endforelse
@@ -85,7 +96,7 @@
         </div>
         <div class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             @forelse($projectTracking->workLogs as $log)
-                <div class="rounded-lg border border-gray-200 p-4"><div class="flex justify-between gap-3"><div><p class="font-semibold">{{ $log->activity->name }}</p><p class="text-xs text-gray-500">Du {{ ($log->started_at ?? $log->work_date)->format('d/m/Y H:i') }} au {{ ($log->ended_at ?? $log->work_date)->format('d/m/Y H:i') }} · {{ $log->user->name }}</p></div>@can('update', $projectTracking)<div class="flex items-center gap-2"><a href="{{ route('project-trackings.work-logs.edit', [$projectTracking, $log]) }}" aria-label="Modifier cette déclaration" title="Modifier" class="flex h-9 w-9 items-center justify-center rounded-lg text-gut-blue transition-colors hover:bg-sky-50"><i class="fas fa-pen" aria-hidden="true"></i></a><form action="{{ route('project-trackings.work-logs.destroy', [$projectTracking, $log]) }}" method="POST" onsubmit="return confirm('Supprimer cette déclaration ?')">@csrf @method('DELETE')<button aria-label="Supprimer cette déclaration" title="Supprimer" class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-red-500 transition-colors hover:bg-red-50"><i class="fas fa-trash" aria-hidden="true"></i></button></form></div>@endcan</div><p class="mt-2 text-sm">{{ $log->work_description }}</p><p class="mt-2 text-sm font-semibold text-gut-blue">+ {{ number_format((float)$log->quantity_completed, 2, ',', ' ') }} %</p>@if($log->difficulties)<p class="mt-2 text-sm text-orange-700">Difficulté : {{ $log->difficulties }}</p>@endif</div>
+                <div class="rounded-lg border border-gray-200 p-4"><div class="flex justify-between gap-3"><div><p class="font-semibold">{{ $log->activity->name }}</p><p class="text-xs text-gray-500">Du {{ ($log->started_at ?? $log->work_date)->format('d/m/Y H:i') }} au {{ ($log->ended_at ?? $log->work_date)->format('d/m/Y H:i') }} · {{ $log->user->name }}</p></div>@can('update', $projectTracking)<div class="flex items-center gap-2"><a href="{{ route('project-trackings.work-logs.edit', [$projectTracking, $log]) }}" aria-label="Modifier cette déclaration" title="Modifier" class="flex h-9 w-9 items-center justify-center rounded-lg text-gut-blue transition-colors hover:bg-sky-50"><i class="fas fa-pen" aria-hidden="true"></i></a><form action="{{ route('project-trackings.work-logs.destroy', [$projectTracking, $log]) }}" method="POST" onsubmit="return confirm('Supprimer cette déclaration ?')">@csrf @method('DELETE')<button aria-label="Supprimer cette déclaration" title="Supprimer" class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-red-500 transition-colors hover:bg-red-50"><i class="fas fa-trash" aria-hidden="true"></i></button></form></div>@endcan</div><div class="mt-2 flex items-start justify-between gap-3"><p class="whitespace-pre-wrap text-sm">{{ $log->work_description }}</p><x-ai-text-button :model="$log" field="work_description" /></div><p class="mt-2 text-sm font-semibold text-gut-blue">+ {{ number_format((float)$log->quantity_completed, 2, ',', ' ') }} %</p>@if($log->difficulties)<div class="mt-2 flex items-start justify-between gap-3"><p class="whitespace-pre-wrap text-sm text-orange-700">Difficulté : {{ $log->difficulties }}</p><x-ai-text-button :model="$log" field="difficulties" /></div>@endif</div>
             @empty<p class="md:col-span-2 xl:col-span-3 text-gray-500">Aucun travail déclaré.</p>@endforelse
         </div>
     </section>
@@ -99,7 +110,7 @@
             @forelse($projectTracking->actions as $action)
                 <div class="rounded-lg border p-4">
                     <div class="flex items-start justify-between gap-3">
-                        <p class="font-semibold">{{ $action->title }}</p>
+                        <div class="flex items-center gap-2"><p class="font-semibold">{{ $action->title }}</p><x-ai-text-button :model="$action" field="title" /></div>
                         <div class="flex shrink-0 items-center gap-2">
                             <span class="text-xs {{ $action->due_date->isPast() && $action->status !== 'completed' ? 'font-bold text-red-600' : 'text-gray-500' }}">{{ $action->due_date->format('d/m/Y') }}</span>
                             @can('update', $projectTracking)
@@ -107,6 +118,9 @@
                             @endcan
                         </div>
                     </div>
+                    @foreach(['description' => 'Description', 'completion_comment' => 'Commentaire de clôture'] as $field => $label)
+                        @if($action->$field)<div class="mt-2 flex items-start justify-between gap-3"><p class="whitespace-pre-wrap text-sm text-gray-700">{{ $label }} : {{ $action->$field }}</p><x-ai-text-button :model="$action" :field="$field" /></div>@endif
+                    @endforeach
                     <p class="text-sm text-gray-600">Responsables : {{ collect($action->responsible_names ?: [$action->responsible_name])->filter()->implode(', ') }}</p>
                     @can('update', $projectTracking)
                         <form action="{{ route('project-actions.status', $action) }}" method="POST" class="mt-3 flex flex-col gap-2 sm:flex-row">@csrf @method('PATCH')<select name="status" class="rounded-lg border-gray-300 text-sm">@foreach(['open'=>'Ouverte','in_progress'=>'En cours','completed'=>'Terminée','cancelled'=>'Annulée'] as $value=>$label)<option value="{{ $value }}" @selected($action->status === $value)>{{ $label }}</option>@endforeach</select><button class="cursor-pointer rounded-lg bg-gray-800 px-3 py-2 text-sm text-white">Mettre à jour</button></form>
@@ -121,6 +135,22 @@
     </section>
 
     @can('update', $projectTracking)
+    @if($projectTracking->blockers->isNotEmpty())
+        <section class="rounded-xl bg-white p-6 shadow-sm">
+            <h2 class="text-xl font-bold">Blocages et solutions</h2>
+            <div class="mt-4 grid gap-4 md:grid-cols-2">
+                @foreach($projectTracking->blockers as $blocker)
+                    <div class="rounded-lg border border-gray-200 p-4">
+                        <p class="font-semibold">{{ $blocker->category }}</p>
+                        @foreach(['description' => 'Description', 'impact' => 'Impact', 'proposed_solution' => 'Solution proposée'] as $field => $label)
+                            @if($blocker->$field)<div class="mt-2 flex items-start justify-between gap-3"><p class="whitespace-pre-wrap text-sm text-gray-700">{{ $label }} : {{ $blocker->$field }}</p><x-ai-text-button :model="$blocker" :field="$field" /></div>@endif
+                        @endforeach
+                    </div>
+                @endforeach
+            </div>
+        </section>
+    @endif
+
     <dialog id="work-log-modal" aria-labelledby="work-log-modal-title" class="w-[min(92vw,56rem)] max-h-[90vh] rounded-2xl p-0 shadow-2xl backdrop:bg-slate-900/60">
         <div class="flex max-h-[90vh] flex-col bg-white">
             <div class="flex items-center justify-between border-b px-6 py-5"><div><h2 id="work-log-modal-title" class="text-xl font-bold">Déclarer le travail réalisé</h2><p class="mt-1 text-sm text-gray-500">Renseignez le travail réellement effectué sur le terrain.</p></div><button type="button" onclick="closeTrackingModal('work-log-modal')" aria-label="Fermer" class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"><i class="fas fa-times" aria-hidden="true"></i></button></div>

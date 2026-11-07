@@ -178,6 +178,7 @@
     </style>
 </head>
 <body>
+    <x-ai-revision-notice :model="$survey" />
     <div class="vertical-sidebar">
         <div class="sidebar-text">CONNECTER LA VIE...</div>
     </div>
@@ -287,7 +288,7 @@
         </div>
 
         <!-- Contenu de la mise en page -->
-        @if($survey->layout_content)
+        @if(\App\Services\ReviewableText::hasContent($survey->layout_content))
             <div class="section-box">
                 <div class="section-header">Contenu du plan :</div>
                 <div class="section-content">

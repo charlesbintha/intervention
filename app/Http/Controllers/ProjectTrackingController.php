@@ -100,10 +100,17 @@ class ProjectTrackingController extends Controller
         $projectTracking->load([
             'user',
             'activities.workLogs',
+            'blockers',
             'workLogs' => fn ($query) => $query->with(['activity', 'user'])->latest('started_at'),
             'actions' => fn ($query) => $query->with('activity')->orderBy('due_date'),
             'revisions' => fn ($query) => $query->with(['activity', 'user'])->latest('version'),
         ]);
+
+        foreach ([$projectTracking->activities, $projectTracking->workLogs, $projectTracking->actions, $projectTracking->blockers] as $items) {
+            foreach ($items as $item) {
+                $item->setRelation('projectTracking', $projectTracking);
+            }
+        }
 
         $assigneeChoices = collect();
         $employees = collect();

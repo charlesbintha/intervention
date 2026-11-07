@@ -60,6 +60,74 @@ class TextReviewTest extends \Tests\TestCase
         });
     }
 
+    public function test_turns_an_unapplied_accent_remark_into_a_savable_proposal(): void
+    {
+        $attempts = 0;
+        Http::fake(['api.anthropic.com/*' => function (ClientRequest $request) use (&$attempts) {
+            $attempts++;
+            $segments = json_decode($request['messages'][0]['content'], true);
+            foreach ($segments as &$segment) {
+                $segment['text'] = $attempts === 1 ? $segment['text'] : str_replace('complete', 'complète', $segment['text']);
+                $segment['note'] = $attempts === 1 ? 'Accent manquant possible : « complète » ?' : '';
+            }
+
+            return Http::response(['stop_reason' => 'tool_use', 'content' => [[
+                'type' => 'tool_use', 'name' => 'review_text', 'input' => ['segments' => $segments],
+            ]]]);
+        }]);
+        $survey = Survey::factory()->create(['purpose' => 'Couverture Wifi complete', 'status' => 'validated']);
+
+        $preview = $this->actingAs($survey->user)->postJson(route('text-reviews.saved-preview', ['surveys', $survey->id]), ['field' => 'purpose'])
+            ->assertSuccessful()->assertJsonPath('fields.purpose.changed', true)
+            ->assertJsonPath('fields.purpose.value', 'Couverture Wifi complète');
+
+        $this->assertNotEmpty($preview->json('fields.purpose.token'));
+        $this->putJson(route('text-reviews.apply', ['surveys', $survey->id]), ['token' => $preview->json('fields.purpose.token')])->assertSuccessful();
+        $this->assertSame('Couverture Wifi complète', $survey->fresh()->purpose);
+        Http::assertSentCount(2);
+    }
+
+    public function test_keeps_factual_questions_on_their_own_field_without_retrying(): void
+    {
+        Http::fake(['api.anthropic.com/*' => function (ClientRequest $request) {
+            $segments = json_decode($request['messages'][0]['content'], true);
+            foreach ($segments as &$segment) {
+                $segment['note'] = str_contains($segment['text'], 'stockage') ? 'Le lieu de stockage est-il disponible ou manquant ?' : '';
+            }
+
+            return Http::response(['stop_reason' => 'tool_use', 'content' => [[
+                'type' => 'tool_use', 'name' => 'review_text', 'input' => ['segments' => $segments],
+            ]]]);
+        }]);
+
+        $results = app(TextReviewService::class)->reviewFields([
+            'purpose' => 'Couverture Wi-Fi complète.', 'observations' => 'Lieu de stockage adéquat.',
+        ]);
+        $this->assertSame('', $results['purpose']['note']);
+        $this->assertSame('Le lieu de stockage est-il disponible ou manquant ?', $results['observations']['note']);
+        $this->assertFalse($results['observations']['changed']);
+        Http::assertSentCount(1);
+    }
+
+    public function test_does_not_loop_when_the_model_keeps_returning_an_unapplied_spelling_remark(): void
+    {
+        Http::fake(['api.anthropic.com/*' => function (ClientRequest $request) {
+            $segments = json_decode($request['messages'][0]['content'], true);
+            foreach ($segments as &$segment) {
+                $segment['note'] = 'Accent manquant possible.';
+            }
+
+            return Http::response(['stop_reason' => 'tool_use', 'content' => [[
+                'type' => 'tool_use', 'name' => 'review_text', 'input' => ['segments' => $segments],
+            ]]]);
+        }]);
+
+        $result = app(TextReviewService::class)->reviewFields(['purpose' => 'Couverture Wifi complete']);
+        $this->assertFalse($result['purpose']['changed']);
+        $this->assertSame('Couverture Wifi complete', $result['purpose']['value']);
+        Http::assertSentCount(2);
+    }
+
     public function test_keeps_rich_text_attributes_and_embeds_intact(): void
     {
         fakeEditorialReview(fn (string $text): string => str_replace('Reunion', 'Réunion', $text));

@@ -74,7 +74,7 @@
         return container;
     }
 
-    async function compare(fields, saving = false) {
+    async function compare(fields, { saving = false, persist = false } = {}) {
         const content = element('div', 'flex flex-col gap-5');
         const selections = {};
         let changes = 0;
@@ -82,7 +82,7 @@
             if (!result.changed && !result.note) continue;
             const section = element('section', 'flex flex-col gap-2 text-left');
             section.append(element('h3', 'font-semibold text-gray-900', labels[field] || field));
-            if (result.after_validation) {
+            if (result.after_validation && result.changed) {
                 section.append(element('p', 'rounded bg-amber-50 p-2 text-sm text-amber-900', 'Correction après validation : la version originale sera conservée. Les signatures existantes concernent la version originale.'));
             }
             if (result.note) section.append(element('p', 'rounded bg-blue-50 p-2 text-sm text-blue-900', result.note));
@@ -100,6 +100,10 @@
                 selections[field] = checkbox;
                 label.append(checkbox, document.createTextNode('Appliquer cette correction'));
                 section.append(columns, label);
+            } else {
+                section.append(element('p', 'text-sm text-gray-600', 'Aucune version corrigée n’a été proposée : le texte reste inchangé.'));
+                section.append(element('p', 'text-xs font-semibold text-gray-500', 'Texte actuel'));
+                section.append(element('div', 'whitespace-pre-wrap break-words rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800', result.original));
             }
             content.append(section);
         }
@@ -109,8 +113,8 @@
         }
         const result = await Swal.fire({
             title: changes ? 'Relire avant d’appliquer' : 'Précisions à vérifier', html: content, width: '64rem',
-            showCancelButton: true, showDenyButton: changes > 0, allowOutsideClick: false,
-            confirmButtonText: changes ? (saving ? 'Appliquer et enregistrer' : 'Appliquer') : (saving ? 'Enregistrer mon texte' : 'Fermer'),
+            showCancelButton: saving || changes > 0, showDenyButton: changes > 0, allowOutsideClick: false,
+            confirmButtonText: changes ? (saving || persist ? 'Appliquer et enregistrer' : 'Appliquer au formulaire') : (saving ? 'Enregistrer mon texte' : 'Fermer'),
             denyButtonText: saving ? 'Enregistrer sans correction' : 'Conserver mon texte',
             cancelButtonText: saving ? 'Revenir au formulaire' : 'Annuler',
         });
@@ -159,7 +163,7 @@
         }
         if (!Object.keys(fields).length) return true;
         const data = await request(config.previewUrl, 'POST', { ...context, fields });
-        const result = await compare(data.fields, saving);
+        const result = await compare(data.fields, { saving });
         if (!result.proceed) return false;
         for (const [field, reviewed] of Object.entries(data.fields)) {
             if (accessors[field].get() !== fields[field]) throw new Error('Le texte a changé pendant la relecture. Relancez la vérification.');
@@ -240,7 +244,7 @@
             }
             Swal.fire({ title: 'Relecture du texte…', allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
             const data = await request(button.dataset.aiSaved, 'POST', { field: button.dataset.aiField });
-            const result = await compare(data.fields);
+            const result = await compare(data.fields, { persist: true });
             if (result.selected.length) {
                 Swal.fire({ title: 'Enregistrement…', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
                 await request(button.dataset.aiApply, 'PUT', { token: data.fields[button.dataset.aiField].token });
